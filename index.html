@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try {
+    var t = localStorage.getItem('heal-theme');
+    if (t !== 'dark' && t !== 'light') {
+      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  } catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#F1F2F5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Heal — Frequency Sound Generator</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="512x512" href="icon512_rounded.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon512_rounded.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<style>
+  :root{
+    --bg: #F1F2F5;
+    --bg-elev: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface-2: #F6F7F9;
+    --border: #E1E4E9;
+    --border-soft: #E9EBEF;
+    --text: #1A1F27;
+    --text-dim: #6B7280;
+    --text-faint: #9AA1AC;
+
+    --c-healing: #0D9488;
+    --c-healing-dim: #CCEFEA;
+    --c-clear: #6366F1;
+    --c-clear-dim: #E1E2FB;
+    --c-happy: #D97706;
+    --c-happy-dim: #FCEACC;
+    --c-irritate: #E11D48;
+    --c-irritate-dim: #FBD9E0;
+
+    --accent: var(--c-healing);
+    --accent-dim: var(--c-healing-dim);
+
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+
+    --font-display: 'Bricolage Grotesque', 'Inter', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    --player-h: 92px;
+  }
+
+  :root[data-theme="dark"]{
+    --bg: #0C0E12;
+    --bg-elev: #15181D;
+    --surface: #15181D;
+    --surface-2: #1C2027;
+    --border: #2A2F38;
+    --border-soft: #20242B;
+    --text: #F1F2F5;
+    --text-dim: #9AA1AC;
+    --text-faint: #6B7280;
+
+    --c-healing-dim: rgba(13,148,136,0.24);
+    --c-clear-dim: rgba(99,102,241,0.24);
+    --c-happy-dim: rgba(217,119,6,0.24);
+    --c-irritate-dim: rgba(225,29,72,0.24);
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+
+  html, body{
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    overscroll-behavior-y: none;
+  }
+
+  body,
+  .topbar, .viz-panel, .preset-card, .custom-panel, .player-inner, .status-chip,
+  .theme-toggle, .brand-mark, .ctrl-btn, .play-btn, .preset-icon, .preset-info-btn,
+  .wave-btn, .upload-drop, .song-remove{
+    transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+  }
+
+  body{
+    -webkit-font-smoothing: antialiased;
+    background: var(--bg);
+  }
+
+  button{ font-family: inherit; border:none; background:none; color:inherit; cursor:pointer; }
+  input[type="range"]{ -webkit-appearance:none; appearance:none; }
+  select{ font-family: inherit; }
+
+  .app{
+    max-width: 1180px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    display:flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position: sticky;
+    top:0;
+    z-index: 20;
+    padding: calc(var(--safe-top) + 16px) 20px 14px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width: 48px; height:48px; border-radius: 13px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .brand-mark img{ width:100%; height:100%; object-fit: cover; display:block; }
+  .status-chip{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 100px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .status-dot{ width:6px; height:6px; border-radius:50%; background: var(--text-faint); transition: all .3s ease; }
+  .status-dot.on{ background: var(--accent); box-shadow: 0 0 8px 1px var(--accent); }
+
+  .topbar-right{ display:flex; align-items:center; gap:10px; }
+  .theme-toggle{
+    width: 34px; height:34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-dim);
+    font-size: 15px;
+    flex-shrink:0;
+    transition: transform .2s ease, color .2s ease, border-color .2s ease, background-color .2s ease;
+  }
+  .theme-toggle:hover{ color: var(--accent); border-color: var(--accent); }
+  .theme-toggle:active{ transform: scale(0.88); }
+
+  .install-btn{
+    display:flex; align-items:center; gap:7px;
+    height: 34px;
+    padding: 0 12px 0 8px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-display);
+    transition: transform .15s ease, border-color .2s ease, background-color .2s ease;
+  }
+  .install-btn[hidden]{ display:none; }
+  .install-btn:active{ transform: scale(0.95); }
+  .install-btn:hover{ border-color: var(--accent); }
+  .install-btn-icon{
+    width: 20px; height:20px;
+    border-radius: 6px;
+    display:block;
+    flex-shrink:0;
+  }
+
+  /* ---------- Content ---------- */
+  .content{
+    flex:1;
+    padding: 4px 20px calc(var(--player-h) + var(--safe-bottom) + 36px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  section{ margin-top: 30px; }
+  section:first-of-type{ margin-top: 6px; }
+
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .section-head h2{
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .section-head span{
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+
+  /* ---------- Visualizer panel ---------- */
+  .viz-panel{
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 22px 18px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .viz-readout{
+    display:flex;
+    align-items:flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index:1;
+  }
+  .viz-freq{ display:flex; align-items:baseline; gap:6px; }
+  .viz-freq .num{
+    font-family: var(--font-mono);
+    font-size: clamp(34px, 8vw, 46px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .viz-freq .unit{ font-family: var(--font-mono); font-size: 15px; color: var(--text-dim); }
+  .viz-label{
+    text-align:right;
+  }
+  .viz-label .name{ font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--accent); transition: color .4s ease; }
+  .viz-label .wave{ font-size: 11px; color: var(--text-faint); text-transform: capitalize; margin-top: 2px; font-family: var(--font-mono); }
+
+  canvas#scope{
+    width: 100%;
+    height: 120px;
+    display:block;
+    margin-top: 18px;
+    border-radius: var(--radius-md);
+    position: relative;
+    z-index:1;
+    transition: height .25s ease;
+  }
+  .viz-panel.song-mode canvas#scope{ height: 170px; }
+
+  .viz-fullscreen-btn{
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 34px; height:34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-dim);
+    font-size: 14px;
+    z-index: 3;
+    transition: color .2s ease, border-color .2s ease, transform .2s ease, background-color .2s ease;
+  }
+  .viz-fullscreen-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .viz-fullscreen-btn:active{ transform: scale(0.88); }
+
+  /* ---------- Visualizer fullscreen mode ---------- */
+  body.viz-fullscreen-active{ overflow: hidden; }
+  .viz-panel.is-fullscreen{
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    border-radius: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: calc(var(--safe-top) + 22px) 24px calc(var(--safe-bottom) + 28px);
+  }
+  .viz-panel.is-fullscreen .viz-readout{ flex: 0 0 auto; }
+  .viz-panel.is-fullscreen .viz-freq .num{
+    font-size: clamp(56px, 15vw, 120px);
+  }
+  .viz-panel.is-fullscreen .viz-freq .unit{ font-size: clamp(16px, 3vw, 22px); }
+  .viz-panel.is-fullscreen .viz-label .name{ font-size: clamp(16px, 3vw, 22px); }
+  .viz-panel.is-fullscreen .viz-label .wave{ font-size: clamp(12px, 2vw, 14px); }
+  .viz-panel.is-fullscreen canvas#scope{
+    flex: 1 1 auto;
+    height: auto !important;
+    min-height: 0;
+    margin-top: 28px;
+  }
+  .viz-panel.is-fullscreen .viz-fullscreen-btn{
+    top: calc(var(--safe-top) + 18px);
+    right: 20px;
+  }
+
+  /* ---------- Preset cards ---------- */
+  .preset-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .preset-card{
+    text-align:left;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: 18px 16px;
+    display:flex;
+    flex-direction: column;
+    gap: 16px;
+    cursor: pointer;
+    transition: transform .15s ease, border-color .2s ease, background .2s ease;
+    position: relative;
+  }
+  .preset-card:focus-visible{ outline: 2px solid var(--card-color, var(--accent)); outline-offset: 2px; }
+  .preset-card:active{ transform: scale(0.97); }
+  .preset-card.active{
+    border-color: var(--card-color, var(--accent));
+    background: var(--surface-2);
+  }
+  .preset-top{ display:flex; align-items:center; justify-content: space-between; }
+  .preset-icon{
+    width: 42px; height:42px;
+    border-radius: 11px;
+    display:flex; align-items:center; justify-content:center;
+    background: color-mix(in srgb, var(--card-color) 16%, transparent);
+    color: var(--card-color);
+    font-size: 19px;
+  }
+  :root[data-theme="dark"] .preset-icon{
+    background: color-mix(in srgb, var(--card-color) 26%, transparent);
+  }
+  .preset-top-right{ display:flex; align-items:center; gap:8px; }
+  .preset-freq{ font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+  .preset-name{ font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+
+  .preset-info-btn{
+    width: 26px; height:26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-faint);
+    font-size: 13px;
+    flex-shrink:0;
+    transition: transform .25s ease, color .2s ease, border-color .2s ease;
+  }
+  .preset-info-btn:active{ transform: scale(0.9); }
+  .preset-card.info-open .preset-info-btn{
+    color: var(--card-color, var(--accent));
+    border-color: var(--card-color, var(--accent));
+    transform: rotate(180deg);
+  }
+  .preset-detail{
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .28s ease;
+  }
+  .preset-card.info-open .preset-detail{ grid-template-rows: 1fr; }
+  .preset-detail-inner{
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-faint);
+  }
+  .preset-card.info-open .preset-detail-inner{ padding-top: 2px; }
+
+  /* ---------- Custom section ---------- */
+  .custom-panel{
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+  }
+  .field{ margin-bottom: 20px; }
+  .field:last-child{ margin-bottom: 0; }
+  .field-label{
+    display:flex; justify-content: space-between; align-items:center;
+    font-size: 12px; color: var(--text-dim); margin-bottom: 10px;
+    font-family: var(--font-mono);
+  }
+  .field-label b{ color: var(--text); font-weight: 600; }
+
+  input[type="range"]{
+    width: 100%;
+    height: 34px;
+    background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track{
+    height: 4px;
+    border-radius: 4px;
+    background: var(--border);
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width: 20px; height:20px;
+    margin-top: -8px;
+    border-radius: 50%;
+    background: var(--text);
+    border: 3px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  input[type="range"]::-moz-range-track{
+    height: 4px; border-radius:4px;
+    background: var(--border);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width: 16px; height:16px; border-radius:50%;
+    background: var(--text); border: 3px solid var(--accent);
+  }
+
+  .wave-select{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .wave-btn{
+    padding: 10px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-transform: capitalize;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    transition: all .15s ease;
+  }
+  .wave-btn i{ font-size: 16px; }
+  .wave-btn.active{
+    border-color: var(--accent);
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .upload-drop{
+    display:flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-md);
+    padding: 26px 16px;
+    cursor: pointer;
+    color: var(--text-dim);
+    text-align:center;
+    transition: border-color .2s ease, background .2s ease, color .2s ease;
+  }
+  .upload-drop:hover, .upload-drop:focus-within{
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+  .upload-drop i{ font-size: 26px; }
+  .upload-drop span{ font-size: 13px; font-weight: 500; }
+  .upload-drop small{ font-size: 11px; color: var(--text-faint); }
+
+  .song-info{ margin-top: 16px; }
+  .song-meta{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .song-name-wrap{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .song-name{
+    font-size: 13px; font-weight:600; color: var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    font-family: var(--font-display);
+  }
+  .song-remove{
+    width: 22px; height:22px; flex-shrink:0;
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-faint);
+    font-size: 11px;
+    border: 1px solid var(--border);
+  }
+  .song-time{ font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); flex-shrink:0; white-space:nowrap; }
+  .song-controls{ display:flex; align-items:center; gap:10px; }
+  .song-controls input[type="range"]{ flex:1; }
+
+  .about-panel{
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.6;
+    padding: 4px 4px 0;
+  }
+  .about-panel strong{ color: var(--text-dim); }
+
+  .page-credit{
+    text-align:center;
+    margin-top: 36px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-soft);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .page-credit b{ color: var(--text-dim); font-weight: 600; letter-spacing: 0.02em; }
+
+  /* ---------- Bottom player bar ---------- */
+  .player-bar{
+    position: fixed;
+    left: 0; right:0; bottom:0;
+    z-index: 30;
+    display:flex;
+    justify-content:center;
+  }
+  .player-inner{
+    width:100%;
+    max-width: 1180px;
+    margin: 0 20px;
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 12px 12px calc(12px + var(--safe-bottom));
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    box-shadow: 0 -8px 30px rgba(20,25,35,0.10);
+  }
+  :root[data-theme="dark"] .player-inner{
+    background: rgba(21,24,29,0.82);
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.35);
+  }
+  @media (min-width: 620px){
+    .player-inner{ margin: 0 auto 16px; }
+    .player-bar{ bottom:0; padding-bottom:0; }
+  }
+
+  .player-info{ flex:1; min-width:0; display:flex; align-items:center; gap:10px; }
+  .player-swatch{
+    width: 40px; height:40px; border-radius: 10px; flex-shrink:0;
+    background: var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    transition: background .4s ease;
+  }
+  .player-swatch i{ font-size:18px; color: #FFFFFF; }
+  .player-text{ min-width:0; }
+  .player-text .n{ font-size: 13px; font-weight:600; font-family: var(--font-display); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .player-text .f{ font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); }
+
+  .player-controls{ display:flex; align-items:center; gap:8px; }
+  .ctrl-btn{
+    width: 40px; height:40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-dim);
+    transition: all .15s ease;
+  }
+  .ctrl-btn:active{ transform: scale(0.92); }
+  .ctrl-btn i{ font-size:16px; }
+
+  .play-btn{
+    width: 52px; height:52px;
+    border-radius: 50%;
+    background: var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    color: #FFFFFF;
+    transition: background .4s ease, transform .15s ease;
+    flex-shrink:0;
+  }
+  .play-btn:active{ transform: scale(0.92); }
+  .play-btn i{ font-size:22px; }
+
+  /* ---------- Desktop layout ---------- */
+  @media (min-width: 860px){
+    .content{
+      display:grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-areas:
+        "viz viz"
+        "custom presets"
+        "song song"
+        "about about"
+        "credit credit";
+      gap: 24px 24px;
+      padding: 24px 32px calc(var(--player-h) + 40px);
+    }
+    .topbar{ padding: 24px 32px 16px; }
+    section{ margin-top:0; }
+    .viz-section{ grid-area: viz; }
+    .presets-section{ grid-area: presets; }
+    .custom-section{ grid-area: custom; }
+    .song-section{ grid-area: song; }
+    .about-section{ grid-area: about; }
+    .page-credit{ grid-area: credit; margin-top:0; }
+    .preset-grid{ grid-template-columns: 1fr 1fr; }
+    canvas#scope{ height: 160px; }
+    .viz-panel.song-mode canvas#scope{ height: 220px; }
+    .player-inner{ padding: 14px 18px; }
+  }
+
+  @media (min-width: 860px) and (min-height: 700px){
+    .viz-panel{ padding: 30px 28px 26px; }
+  }
+
+  ::selection{ background: var(--accent); color:#FFFFFF; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" id="brandMark">
+        <img src="icon512_rounded.png" alt="Heal">
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="install-btn" id="installBtn" type="button" hidden>
+        <img src="icon512_rounded.png" alt="" class="install-btn-icon">
+        <span>Install</span>
+      </button>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode">
+        <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+      </button>
+      <div class="status-chip"><span class="status-dot" id="statusDot"></span><span id="statusText">Idle</span></div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <section class="viz-section">
+      <div class="viz-panel" id="vizPanel">
+        <button class="viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer">
+          <i class="bi bi-arrows-fullscreen" id="vizFullscreenIcon"></i>
+        </button>
+        <div class="viz-readout">
+          <div class="viz-freq">
+            <span class="num" id="freqNum">528</span>
+            <span class="unit">Hz</span>
+          </div>
+          <div class="viz-label">
+            <div class="name" id="activeName">Healing Frequency</div>
+            <div class="wave" id="activeWave">sine wave</div>
+          </div>
+        </div>
+        <canvas id="scope"></canvas>
+      </div>
+    </section>
+
+    <section class="custom-section">
+      <div class="section-head"><h2>Custom Frequency</h2><span>20–20000 Hz</span></div>
+      <div class="custom-panel">
+
+        <div class="field">
+          <div class="field-label"><span>Frequency</span><b id="customFreqLabel">528 Hz</b></div>
+          <input type="range" id="freqSlider" min="0" max="1000" value="500" step="1">
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span>Waveform</span></div>
+          <div class="wave-select" id="waveSelect">
+            <button class="wave-btn" data-wave="sine"><i class="bi bi-activity"></i>sine</button>
+            <button class="wave-btn" data-wave="square"><i class="bi bi-square"></i>square</button>
+            <button class="wave-btn" data-wave="triangle"><i class="bi bi-triangle"></i>tri</button>
+            <button class="wave-btn" data-wave="sawtooth"><i class="bi bi-graph-up"></i>saw</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span>Volume</span><b id="volLabel">40%</b></div>
+          <input type="range" id="volSlider" min="0" max="100" value="40" step="1">
+        </div>
+
+      </div>
+    </section>
+
+    <section class="presets-section">
+      <div class="section-head"><h2>Presets</h2><span>tap to select</span></div>
+      <div class="preset-grid" id="presetGrid"></div>
+    </section>
+
+    <section class="song-section">
+      <div class="section-head"><h2>Upload Song</h2><span>watch the waveform live</span></div>
+      <div class="custom-panel">
+
+        <label class="upload-drop" for="songInput">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <span id="uploadLabel">Choose an audio file</span>
+          <small>MP3, WAV, M4A and more</small>
+          <input type="file" id="songInput" accept="audio/*" hidden>
+        </label>
+
+        <div class="song-info" id="songInfo" hidden>
+          <div class="song-meta">
+            <div class="song-name-wrap">
+              <button class="song-remove" id="songRemoveBtn" type="button" aria-label="Remove song"><i class="bi bi-x"></i></button>
+              <div class="song-name" id="songName">—</div>
+            </div>
+            <div class="song-time"><span id="songCurrent">0:00</span> / <span id="songDuration">0:00</span></div>
+          </div>
+          <div class="song-controls">
+            <button class="ctrl-btn" id="songPlayBtn" type="button" aria-label="Play song">
+              <i class="bi bi-play-fill" id="songPlayIcon"></i>
+            </button>
+            <input type="range" id="seekSlider" min="0" max="1000" value="0" step="1">
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="about-section">
+      <div class="section-head"><h2>About these tones</h2></div>
+      <div class="about-panel">
+        <strong>Heal</strong> generates pure tones for relaxation, focus and sound exploration. Frequencies such as 528 Hz or 432 Hz are popular in sound-healing culture, but they are not a substitute for medical care and have no clinically proven therapeutic effect. Keep volume low, especially with headphones, and stop if you feel discomfort. The Irritating preset is intentionally harsh — use it briefly.
+      </div>
+    </section>
+
+    <p class="page-credit">Developed by <b>Microintel</b></p>
+
+  </main>
+
+  <div class="player-bar">
+    <div class="player-inner">
+      <div class="player-info">
+        <div class="player-swatch" id="playerSwatch">
+          <i class="bi bi-soundwave"></i>
+        </div>
+        <div class="player-text">
+          <div class="n" id="playerName">Healing Frequency</div>
+          <div class="f" id="playerFreq">528 Hz · sine</div>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="ctrl-btn" id="stopBtn" title="Stop">
+          <i class="bi bi-stop-fill"></i>
+        </button>
+        <button class="play-btn" id="playBtn" title="Play">
+          <i class="bi bi-play-fill" id="playIcon"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- Presets ----------------
+  var PRESETS = [
+    { id: 'healing', name: 'Healing Frequency', freq: 528, wave: 'sine', color: '#0D9488', icon: 'bi-heart-pulse-fill',
+      detail: 'A steady, mid-range tone often played in the background during meditation or rest — the idea is that a calm, unchanging tone helps the body and mind settle.' },
+    { id: 'clear', name: 'Thoughts Clear', freq: 852, wave: 'sine', color: '#6366F1', icon: 'bi-lightbulb-fill',
+      detail: 'A brighter, higher-pitched tone. Some people find higher tones help cut through mental noise and pull attention back to the present, similar to a clear bell.' },
+    { id: 'happy', name: 'Happy Frequency', freq: 432, wave: 'triangle', color: '#D97706', icon: 'bi-emoji-smile-fill',
+      detail: 'A slightly different tuning than standard music (440 Hz). Many describe it as warmer and gentler on the ear, which is why it is linked to a calmer, more pleasant mood.' },
+    { id: 'irritate', name: 'Irritating', freq: 12000, wave: 'square', color: '#E11D48', icon: 'bi-exclamation-triangle-fill',
+      detail: 'A sharp, high-pitched tone, included on purpose as a contrast or test tone — not for relaxation. Keep the volume low.' }
+  ];
+
+  var state = {
+    freq: 528,
+    wave: 'sine',
+    volume: 0.4,
+    playing: false,
+    activePresetId: 'healing',
+    color: '#4FD8BE',
+    mode: 'tone' // 'tone' | 'song'
+  };
+
+  // ---------------- DOM refs ----------------
+  var root = document.documentElement;
+  var presetGrid = document.getElementById('presetGrid');
+  var freqNum = document.getElementById('freqNum');
+  var activeName = document.getElementById('activeName');
+  var activeWave = document.getElementById('activeWave');
+  var freqSlider = document.getElementById('freqSlider');
+  var customFreqLabel = document.getElementById('customFreqLabel');
+  var volSlider = document.getElementById('volSlider');
+  var volLabel = document.getElementById('volLabel');
+  var waveSelect = document.getElementById('waveSelect');
+  var waveButtons = waveSelect.querySelectorAll('.wave-btn');
+  var playBtn = document.getElementById('playBtn');
+  var playIcon = document.getElementById('playIcon');
+  var stopBtn = document.getElementById('stopBtn');
+  var statusDot = document.getElementById('statusDot');
+  var statusText = document.getElementById('statusText');
+  var playerName = document.getElementById('playerName');
+  var playerFreq = document.getElementById('playerFreq');
+  var playerSwatch = document.getElementById('playerSwatch');
+  var brandMark = document.getElementById('brandMark');
+  var themeToggle = document.getElementById('themeToggle');
+  var themeIcon = document.getElementById('themeIcon');
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+  var installBtn = document.getElementById('installBtn');
+  var vizPanel = document.getElementById('vizPanel');
+  var vizFullscreenBtn = document.getElementById('vizFullscreenBtn');
+  var vizFullscreenIcon = document.getElementById('vizFullscreenIcon');
+  var canvas = document.getElementById('scope');
+  var ctx = canvas.getContext('2d');
+  var songInput = document.getElementById('songInput');
+  var songInfo = document.getElementById('songInfo');
+  var songName = document.getElementById('songName');
+  var songCurrent = document.getElementById('songCurrent');
+  var songDuration = document.getElementById('songDuration');
+  var seekSlider = document.getElementById('seekSlider');
+  var songPlayBtn = document.getElementById('songPlayBtn');
+  var songPlayIcon = document.getElementById('songPlayIcon');
+  var songRemoveBtn = document.getElementById('songRemoveBtn');
+
+  // ---------------- Theme (dark / light) ----------------
+  var THEME_KEY = 'heal-theme';
+
+  function syncThemeUI(){
+    var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    themeIcon.className = current === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    themeToggle.setAttribute('aria-label', current === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    if (themeMeta) themeMeta.setAttribute('content', current === 'dark' ? '#0C0E12' : '#F1F2F5');
+  }
+
+  themeToggle.addEventListener('click', function(){
+    var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+    syncThemeUI();
+  });
+
+  // The head script already set data-theme before first paint (avoids a
+  // flash of the wrong theme); this just brings the icon/meta in sync.
+  syncThemeUI();
+
+  // ---------------- Visualizer fullscreen toggle ----------------
+  var isVizFullscreen = false;
+
+  function setVizFullscreenUI(on){
+    isVizFullscreen = on;
+    vizPanel.classList.toggle('is-fullscreen', on);
+    document.body.classList.toggle('viz-fullscreen-active', on);
+    vizFullscreenIcon.className = on ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+    vizFullscreenBtn.setAttribute('aria-label', on ? 'Exit fullscreen' : 'Expand visualizer');
+  }
+
+  function enterVizFullscreen(){
+    setVizFullscreenUI(true);
+    // Best-effort native fullscreen (hides browser chrome on supporting
+    // browsers). Not all browsers/platforms allow arbitrary elements to go
+    // fullscreen (notably iOS Safari), so the CSS overlay above is what
+    // guarantees the expanded view works everywhere regardless.
+    var req = vizPanel.requestFullscreen || vizPanel.webkitRequestFullscreen;
+    if (req){
+      try {
+        var result = req.call(vizPanel);
+        if (result && result.catch) result.catch(function(){});
+      } catch(e){}
+    }
+  }
+
+  function exitVizFullscreen(){
+    setVizFullscreenUI(false);
+    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl){
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit){
+        try {
+          var result = exit.call(document);
+          if (result && result.catch) result.catch(function(){});
+        } catch(e){}
+      }
+    }
+  }
+
+  vizFullscreenBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (isVizFullscreen) exitVizFullscreen(); else enterVizFullscreen();
+  });
+
+  // Tap anywhere on the expanded panel to play/pause, since the bottom
+  // player bar is covered while fullscreen is active.
+  vizPanel.addEventListener('click', function(e){
+    if (!isVizFullscreen) return;
+    if (e.target.closest('.viz-fullscreen-btn')) return;
+    playBtn.click();
+  });
+
+  // Stay in sync if the user exits native fullscreen via Esc, back
+  // gesture, or browser UI rather than our own button.
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function(evt){
+    document.addEventListener(evt, function(){
+      var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!fsEl && isVizFullscreen) setVizFullscreenUI(false);
+    });
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && isVizFullscreen) exitVizFullscreen();
+  });
+
+  // ---------------- PWA install trigger ----------------
+  var deferredInstallPrompt = null;
+
+  function isRunningInstalled(){
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+           window.navigator.standalone === true; // iOS home-screen launch
+  }
+
+  function hideInstallBtn(){
+    installBtn.hidden = true;
+  }
+
+  // Chrome/Edge/Android fire this only when the app is actually eligible
+  // to install (valid manifest + icons + served over https, etc).
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    if (isRunningInstalled()){ return; } // already installed — never show the icon
+    deferredInstallPrompt = e;
+    installBtn.hidden = false;
+  });
+
+  installBtn.addEventListener('click', function(){
+    if (!deferredInstallPrompt) return;
+    installBtn.disabled = true;
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(function(){
+      deferredInstallPrompt = null;
+      installBtn.disabled = false;
+      hideInstallBtn(); // this device has made its choice — don't keep showing it
+    });
+  });
+
+  // Fires once the app is actually installed — belt-and-braces alongside
+  // the hide-after-prompt above (covers cases like install via the
+  // browser's own menu instead of our button).
+  window.addEventListener('appinstalled', hideInstallBtn);
+
+  // If this page is already running as the installed app, never show
+  // the install icon in the first place.
+  if (isRunningInstalled()) hideInstallBtn();
+
+  // ---------------- Build preset cards ----------------
+  PRESETS.forEach(function(p){
+    var card = document.createElement('div');
+    card.className = 'preset-card';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.style.setProperty('--card-color', p.color);
+    card.dataset.id = p.id;
+    card.innerHTML =
+      '<div class="preset-top">' +
+        '<div class="preset-icon"><i class="bi ' + p.icon + '"></i></div>' +
+        '<div class="preset-top-right">' +
+          '<div class="preset-freq">' + p.freq + ' Hz</div>' +
+          '<button class="preset-info-btn" type="button" aria-label="Learn how this helps"><i class="bi bi-chevron-down"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="preset-name">' + p.name + '</div>' +
+      '<div class="preset-detail"><div class="preset-detail-inner">' + p.detail + '</div></div>';
+
+    card.addEventListener('click', function(){ selectPreset(p.id); });
+    card.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); selectPreset(p.id); }
+    });
+    var infoBtn = card.querySelector('.preset-info-btn');
+    infoBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      card.classList.toggle('info-open');
+    });
+    presetGrid.appendChild(card);
+  });
+
+  function getPreset(id){
+    for (var i=0;i<PRESETS.length;i++){ if (PRESETS[i].id === id) return PRESETS[i]; }
+    return null;
+  }
+
+  function selectPreset(id){
+    var p = getPreset(id);
+    if (!p) return;
+    if (state.mode === 'song'){
+      if (audioEl && !audioEl.paused) audioEl.pause();
+      state.playing = false;
+    }
+    state.mode = 'tone';
+    state.activePresetId = id;
+    state.freq = p.freq;
+    state.wave = p.wave;
+    state.color = p.color;
+    applyColor(p.color);
+    vizPanel.classList.remove('song-mode');
+    syncUIFromState();
+    updatePlayUI();
+    if (state.playing) updateLiveTone();
+  }
+
+  function applyColor(color){
+    root.style.setProperty('--accent', color);
+  }
+
+  function syncUIFromState(){
+    freqNum.textContent = Math.round(state.freq);
+    var p = getPreset(state.activePresetId);
+    activeName.textContent = p ? p.name : 'Custom Frequency';
+    activeWave.textContent = state.wave + ' wave';
+    playerName.textContent = p ? p.name : 'Custom Frequency';
+    playerFreq.textContent = Math.round(state.freq) + ' Hz · ' + state.wave;
+
+    // preset card active states
+    var cards = presetGrid.querySelectorAll('.preset-card');
+    cards.forEach(function(c){
+      c.classList.toggle('active', c.dataset.id === state.activePresetId);
+    });
+
+    // slider (log scale 20-20000 -> 0-1000)
+    var t = freqToSlider(state.freq);
+    freqSlider.value = t;
+    customFreqLabel.textContent = Math.round(state.freq) + ' Hz';
+
+    // wave buttons
+    waveButtons.forEach(function(b){
+      b.classList.toggle('active', b.dataset.wave === state.wave);
+    });
+
+    volSlider.value = Math.round(state.volume * 100);
+    volLabel.textContent = Math.round(state.volume * 100) + '%';
+  }
+
+  function freqToSlider(f){
+    var minF = 20, maxF = 20000;
+    var t = Math.log(f/minF) / Math.log(maxF/minF);
+    return Math.round(t * 1000);
+  }
+  function sliderToFreq(v){
+    var minF = 20, maxF = 20000;
+    var t = v / 1000;
+    return minF * Math.pow(maxF/minF, t);
+  }
+
+  // ---------------- Audio ----------------
+  var audioCtx = null, oscillator = null, gainNode = null, analyser = null, masterGain = null;
+  var audioEl = null, songSourceNode = null, songGainNode = null, songObjectURL = null;
+
+  function ensureAudio(){
+    if (!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = state.volume;
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      masterGain.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function startTone(){
+    ensureAudio();
+    if (audioEl && !audioEl.paused) audioEl.pause();
+    stopOscillatorOnly();
+    state.mode = 'tone';
+    oscillator = audioCtx.createOscillator();
+    oscillator.type = state.wave;
+    oscillator.frequency.value = state.freq;
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+    oscillator.connect(gainNode);
+    gainNode.connect(masterGain);
+    oscillator.start();
+    var now = audioCtx.currentTime;
+    gainNode.gain.linearRampToValueAtTime(1, now + 0.08);
+    state.playing = true;
+    updatePlayUI();
+  }
+
+  function stopOscillatorOnly(){
+    if (oscillator){
+      try{ oscillator.stop(); oscillator.disconnect(); }catch(e){}
+      oscillator = null;
+    }
+  }
+
+  function stopTone(){
+    if (!oscillator || !gainNode){ state.playing = false; updatePlayUI(); return; }
+    var now = audioCtx.currentTime;
+    var osc = oscillator, gn = gainNode;
+    gn.gain.cancelScheduledValues(now);
+    gn.gain.setValueAtTime(gn.gain.value, now);
+    gn.gain.linearRampToValueAtTime(0, now + 0.12);
+    setTimeout(function(){
+      try{ osc.stop(); osc.disconnect(); }catch(e){}
+    }, 150);
+    oscillator = null;
+    gainNode = null;
+    state.playing = false;
+    updatePlayUI();
+  }
+
+  function updateLiveTone(){
+    if (!state.playing) return;
+    var now = audioCtx.currentTime;
+    if (oscillator){
+      if (oscillator.type !== state.wave){
+        // waveform change requires a fresh oscillator for a clean transition
+        startTone();
+        return;
+      }
+      oscillator.frequency.setTargetAtTime(state.freq, now, 0.01);
+    }
+  }
+
+  function setVolume(v){
+    state.volume = v;
+    if (masterGain){
+      masterGain.gain.setTargetAtTime(v, audioCtx.currentTime, 0.02);
+    }
+  }
+
+  function updatePlayUI(){
+    if (state.playing){
+      playIcon.className = 'bi bi-pause-fill';
+      statusDot.classList.add('on');
+      statusText.textContent = 'Playing';
+    } else {
+      playIcon.className = 'bi bi-play-fill';
+      statusDot.classList.remove('on');
+      statusText.textContent = 'Idle';
+    }
+    if (songPlayIcon){
+      var songIsPlaying = state.mode === 'song' && state.playing;
+      songPlayIcon.className = songIsPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+    }
+    updateWakeLock();
+  }
+
+  // ---------------- Screen wake lock ----------------
+  // Without this, phones dim/lock the screen after their idle timeout
+  // (often ~30s) even while a tone or song keeps playing.
+  var wakeLock = null;
+
+  function requestWakeLock(){
+    if (!('wakeLock' in navigator) || wakeLock) return;
+    navigator.wakeLock.request('screen').then(function(lock){
+      wakeLock = lock;
+      wakeLock.addEventListener('release', function(){ wakeLock = null; });
+    }).catch(function(){
+      // Can fail if the tab isn't visible/focused yet, or is unsupported —
+      // playback still works fine, the screen just won't be held awake.
+      wakeLock = null;
+    });
+  }
+
+  function releaseWakeLock(){
+    if (wakeLock){
+      wakeLock.release().catch(function(){});
+      wakeLock = null;
+    }
+  }
+
+  function updateWakeLock(){
+    if (state.playing) requestWakeLock(); else releaseWakeLock();
+  }
+
+  // The lock is auto-released whenever the tab is hidden (e.g. switching
+  // apps); re-acquire it if playback is still going once it's visible again.
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && state.playing) requestWakeLock();
+  });
+
+  // ---------------- Song upload & playback ----------------
+  function formatTime(sec){
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    var m = Math.floor(sec / 60);
+    var s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  function loadSong(file){
+    ensureAudio();
+    if (!audioEl){
+      audioEl = new Audio();
+      audioEl.crossOrigin = 'anonymous';
+
+      audioEl.addEventListener('loadedmetadata', function(){
+        songDuration.textContent = formatTime(audioEl.duration);
+      });
+      audioEl.addEventListener('timeupdate', function(){
+        if (!audioEl.duration) return;
+        seekSlider.value = (audioEl.currentTime / audioEl.duration) * 1000;
+        songCurrent.textContent = formatTime(audioEl.currentTime);
+      });
+      audioEl.addEventListener('ended', function(){
+        state.playing = false;
+        updatePlayUI();
+      });
+    }
+
+    if (songObjectURL) URL.revokeObjectURL(songObjectURL);
+    songObjectURL = URL.createObjectURL(file);
+    audioEl.src = songObjectURL;
+    audioEl.load();
+
+    if (!songSourceNode){
+      songSourceNode = audioCtx.createMediaElementSource(audioEl);
+      songGainNode = audioCtx.createGain();
+      songGainNode.gain.value = 1;
+      songSourceNode.connect(songGainNode);
+      songGainNode.connect(masterGain);
+    }
+
+    songName.textContent = file.name;
+    songCurrent.textContent = '0:00';
+    songDuration.textContent = '0:00';
+    seekSlider.value = 0;
+    songInfo.hidden = false;
+
+    activeName.textContent = file.name;
+    activeWave.textContent = 'live frequency';
+    playerName.textContent = file.name;
+    playerFreq.textContent = 'Analyzing…';
+    vizPanel.classList.add('song-mode');
+  }
+
+  function playSong(){
+    if (!audioEl || !audioEl.src) return;
+    ensureAudio();
+    if (state.playing && state.mode === 'tone') stopTone();
+    state.mode = 'song';
+    audioEl.play();
+    state.playing = true;
+    updatePlayUI();
+  }
+
+  function pauseSong(){
+    if (audioEl) audioEl.pause();
+    state.playing = false;
+    updatePlayUI();
+  }
+
+  function stopSong(){
+    if (audioEl){
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    }
+    state.playing = false;
+    updatePlayUI();
+  }
+
+  function removeSong(){
+    stopSong();
+    if (songObjectURL){ URL.revokeObjectURL(songObjectURL); songObjectURL = null; }
+    if (audioEl) audioEl.removeAttribute('src');
+    songInfo.hidden = true;
+    songInput.value = '';
+    vizPanel.classList.remove('song-mode');
+    if (state.mode === 'song'){
+      state.mode = 'tone';
+      syncUIFromState();
+    }
+  }
+
+  songInput.addEventListener('change', function(){
+    var file = songInput.files && songInput.files[0];
+    if (file) loadSong(file);
+  });
+
+  songPlayBtn.addEventListener('click', function(){
+    if (state.mode === 'song' && state.playing){ pauseSong(); } else { playSong(); }
+  });
+
+  songRemoveBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    removeSong();
+  });
+
+  seekSlider.addEventListener('input', function(){
+    if (!audioEl || !audioEl.duration) return;
+    audioEl.currentTime = (parseFloat(seekSlider.value) / 1000) * audioEl.duration;
+  });
+
+  // ---------------- Controls wiring ----------------
+  freqSlider.addEventListener('input', function(){
+    var f = sliderToFreq(parseFloat(freqSlider.value));
+    state.freq = f;
+    state.activePresetId = null;
+    if (audioEl && !audioEl.paused) audioEl.pause();
+    state.mode = 'tone';
+    vizPanel.classList.remove('song-mode');
+    customFreqLabel.textContent = Math.round(f) + ' Hz';
+    freqNum.textContent = Math.round(f);
+    activeName.textContent = 'Custom Frequency';
+    playerName.textContent = 'Custom Frequency';
+    playerFreq.textContent = Math.round(f) + ' Hz · ' + state.wave;
+    var col = freqToColor(f);
+    state.color = col;
+    applyColor(col);
+    presetGrid.querySelectorAll('.preset-card').forEach(function(c){ c.classList.remove('active'); });
+    updateLiveTone();
+  });
+
+  waveButtons.forEach(function(b){
+    b.addEventListener('click', function(){
+      state.wave = b.dataset.wave;
+      waveButtons.forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      activeWave.textContent = state.wave + ' wave';
+      playerFreq.textContent = Math.round(state.freq) + ' Hz · ' + state.wave;
+      updateLiveTone();
+    });
+  });
+
+  volSlider.addEventListener('input', function(){
+    var v = parseFloat(volSlider.value) / 100;
+    volLabel.textContent = Math.round(v*100) + '%';
+    setVolume(v);
+  });
+
+  playBtn.addEventListener('click', function(){
+    if (state.mode === 'song'){
+      if (state.playing){ pauseSong(); } else { playSong(); }
+    } else {
+      if (state.playing){ stopTone(); } else { startTone(); }
+    }
+  });
+  stopBtn.addEventListener('click', function(){
+    if (state.mode === 'song'){ stopSong(); } else { stopTone(); }
+  });
+
+  function freqToColor(f){
+    var minF = 20, maxF = 20000;
+    var t = Math.log(f/minF) / Math.log(maxF/minF);
+    var hue = 260 - t * 260; // violet -> red as freq rises
+    return 'hsl(' + hue.toFixed(0) + ', 70%, 42%)';
+  }
+
+  // ---------------- Visualizer ----------------
+  var dpr = Math.max(1, window.devicePixelRatio || 1);
+  function resizeCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+  }
+  // ResizeObserver catches every size change (window resize, breakpoint
+  // changes, AND the song-mode height transition) so the canvas backing
+  // store always matches its displayed CSS size — a plain 'resize'
+  // listener misses that last case and left the waveform stretched.
+  if (window.ResizeObserver){
+    new ResizeObserver(resizeCanvas).observe(canvas);
+  } else {
+    window.addEventListener('resize', resizeCanvas);
+  }
+
+  var idlePhase = 0;
+  var freqDataArray = null;
+  var timeDataArray = null;
+  var smoothedSongFreq = null;
+  var songFreqUpdateCounter = 0;
+
+  function getDominantFrequency(){
+    if (!analyser || !audioCtx) return null;
+    var bufferLength = analyser.frequencyBinCount;
+    if (!freqDataArray || freqDataArray.length !== bufferLength){
+      freqDataArray = new Uint8Array(bufferLength);
+    }
+    analyser.getByteFrequencyData(freqDataArray);
+
+    var maxVal = 0, maxIndex = -1;
+    // skip the very first bin (near-DC) to avoid rumble/noise dominating
+    for (var i=2;i<bufferLength;i++){
+      if (freqDataArray[i] > maxVal){ maxVal = freqDataArray[i]; maxIndex = i; }
+    }
+    if (maxIndex === -1 || maxVal < 8) return null; // effectively silent
+    var nyquist = audioCtx.sampleRate / 2;
+    return (maxIndex * nyquist) / bufferLength;
+  }
+
+  function updateSongFrequencyReadout(){
+    if (state.mode !== 'song' || !state.playing){
+      songFreqUpdateCounter = 0;
+      return;
+    }
+    songFreqUpdateCounter++;
+    if (songFreqUpdateCounter % 4 !== 0) return; // throttle for a readable, non-jittery number
+
+    var f = getDominantFrequency();
+    if (f == null) return;
+    smoothedSongFreq = (smoothedSongFreq == null) ? f : (smoothedSongFreq * 0.7 + f * 0.3);
+    var rounded = Math.round(smoothedSongFreq);
+    freqNum.textContent = rounded;
+    playerFreq.textContent = rounded + ' Hz · live';
+  }
+
+  function draw(){
+    requestAnimationFrame(draw);
+    var w = canvas.width, h = canvas.height;
+    if (!w || !h) return;
+    ctx.clearRect(0,0,w,h);
+
+    updateSongFrequencyReadout();
+
+    var color = state.color;
+    ctx.lineWidth = 2.5 * dpr;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = Math.min(12 * dpr, 18);
+    ctx.beginPath();
+
+    if (state.playing && analyser){
+      var bufferLength = analyser.fftSize;
+      if (!timeDataArray || timeDataArray.length !== bufferLength){
+        timeDataArray = new Uint8Array(bufferLength);
+      }
+      analyser.getByteTimeDomainData(timeDataArray);
+      var sliceWidth = w / bufferLength;
+      var x = 0;
+      // uploaded songs get a much bigger, more noticeable wave than plain tones
+      var gain = (state.mode === 'song') ? 2.6 : 1.15;
+      for (var i=0;i<bufferLength;i++){
+        var v = (timeDataArray[i] - 128) / 128.0; // -1..1
+        v = Math.max(-1, Math.min(1, v * gain));
+        var y = (h/2) + v * (h/2) * 0.96;
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        x += sliceWidth;
+      }
+    } else {
+      idlePhase += 0.02;
+      var amp = h * 0.16;
+      var mid = h/2;
+      var cycles = 3;
+      for (var px=0; px<=w; px+=4){
+        var y2 = mid + Math.sin((px / w) * Math.PI * 2 * cycles + idlePhase) * amp;
+        if (px===0) ctx.moveTo(px,y2); else ctx.lineTo(px,y2);
+      }
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // ---------------- Init ----------------
+  function init(){
+    resizeCanvas();
+    selectPreset('healing');
+    updatePlayUI();
+    requestAnimationFrame(draw);
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>
