@@ -290,9 +290,13 @@
   .viz-fullscreen-btn:hover{ color: var(--accent); border-color: var(--accent); }
   .viz-fullscreen-btn:active{ transform: scale(0.88); }
 
-  .viz-mic-btn{
+  .viz-source-row{
     position: absolute;
     bottom: 12px; left: 12px;
+    display:flex; align-items:center; gap: 8px;
+    z-index: 3;
+  }
+  .viz-mic-btn, .viz-music-btn{
     width: 34px; height:34px;
     border-radius: 50%;
     border: 1px solid var(--border);
@@ -300,24 +304,63 @@
     display:flex; align-items:center; justify-content:center;
     color: var(--text-dim);
     font-size: 14px;
-    z-index: 3;
+    flex-shrink: 0;
     transition: color .2s ease, border-color .2s ease, transform .2s ease, background-color .2s ease;
   }
-  .viz-mic-btn:hover{ color: var(--accent); border-color: var(--accent); }
-  .viz-mic-btn:active{ transform: scale(0.88); }
+  .viz-mic-btn:hover, .viz-music-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .viz-mic-btn:active, .viz-music-btn:active{ transform: scale(0.88); }
   .viz-mic-btn.active{
     color: #fff;
     border-color: #E11D48;
     background: #E11D48;
     animation: mic-pulse 1.6s ease-in-out infinite;
   }
+  .viz-music-btn.active{
+    color: #fff;
+    border-color: var(--accent);
+    background: var(--accent);
+  }
   @keyframes mic-pulse{
     0%, 100%{ box-shadow: 0 0 0 0 rgba(225,29,72,0.45); }
     50%{ box-shadow: 0 0 0 7px rgba(225,29,72,0); }
   }
-  .viz-panel.is-fullscreen .viz-mic-btn{
+  .viz-panel.is-fullscreen .viz-source-row{
     bottom: calc(var(--safe-bottom) + 20px);
     left: 20px;
+  }
+
+  /* ---------- Mini track bar (music seek line inside the visualizer) ---------- */
+  .viz-track-bar{
+    display:flex; align-items:center; gap: 10px;
+    margin-top: 14px;
+    padding-top: 4px;
+  }
+  .viz-track-bar[hidden]{ display:none; }
+  .viz-track-bar .ctrl-btn{
+    width: 32px; height:32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .viz-track-bar .ctrl-btn i{ font-size:14px; }
+  .viz-track-name{
+    font-size: 11px;
+    color: var(--text-dim);
+    max-width: 70px;
+    overflow:hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink:0;
+  }
+  .viz-track-bar input[type="range"]{ flex:1; }
+  .viz-track-time{
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    flex-shrink:0;
+    white-space:nowrap;
   }
 
   /* ---------- Visualizer fullscreen mode ---------- */
@@ -331,20 +374,19 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: calc(var(--safe-top) + 22px) 24px calc(var(--safe-bottom) + 28px);
+    padding: 0;
   }
-  .viz-panel.is-fullscreen .viz-readout{ flex: 0 0 auto; }
-  .viz-panel.is-fullscreen .viz-freq .num{
-    font-size: clamp(56px, 15vw, 120px);
+  /* pure 3D view: the frequency number, track name, and mini seek bar all step aside */
+  .viz-panel.is-fullscreen .viz-readout,
+  .viz-panel.is-fullscreen .viz-track-bar{
+    display: none;
   }
-  .viz-panel.is-fullscreen .viz-freq .unit{ font-size: clamp(16px, 3vw, 22px); }
-  .viz-panel.is-fullscreen .viz-label .name{ font-size: clamp(16px, 3vw, 22px); }
-  .viz-panel.is-fullscreen .viz-label .wave{ font-size: clamp(12px, 2vw, 14px); }
   .viz-panel.is-fullscreen .viz-canvas-wrap{
     flex: 1 1 auto;
-    height: auto !important;
+    height: 100% !important;
     min-height: 0;
-    margin-top: 28px;
+    margin-top: 0;
+    border-radius: 0;
   }
   .viz-panel.is-fullscreen .viz-fullscreen-btn{
     top: calc(var(--safe-top) + 18px);
@@ -698,9 +740,22 @@
         </div>
         <div class="viz-canvas-wrap">
           <canvas id="scope"></canvas>
-          <button class="viz-mic-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
-            <i class="bi bi-mic" id="vizMicIcon"></i>
+          <div class="viz-source-row">
+            <button class="viz-mic-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
+              <i class="bi bi-mic" id="vizMicIcon"></i>
+            </button>
+            <button class="viz-music-btn" id="vizMusicBtn" type="button" aria-label="Select a music track">
+              <i class="bi bi-music-note-beamed" id="vizMusicIcon"></i>
+            </button>
+          </div>
+        </div>
+        <div class="viz-track-bar" id="vizTrackBar" hidden>
+          <button class="ctrl-btn" id="vizTrackPlayBtn" type="button" aria-label="Play track">
+            <i class="bi bi-play-fill" id="vizTrackPlayIcon"></i>
           </button>
+          <span class="viz-track-name" id="vizTrackName">—</span>
+          <input type="range" id="vizTrackSeek" min="0" max="1000" value="0" step="1">
+          <span class="viz-track-time"><span id="vizTrackCurrent">0:00</span>/<span id="vizTrackDuration">0:00</span></span>
         </div>
       </div>
     </section>
@@ -858,6 +913,8 @@
   var vizFullscreenIcon = document.getElementById('vizFullscreenIcon');
   var vizMicBtn = document.getElementById('vizMicBtn');
   var vizMicIcon = document.getElementById('vizMicIcon');
+  var vizMusicBtn = document.getElementById('vizMusicBtn');
+  var vizMusicIcon = document.getElementById('vizMusicIcon');
   var canvas = document.getElementById('scope');
   var songInput = document.getElementById('songInput');
   var songInfo = document.getElementById('songInfo');
@@ -868,6 +925,13 @@
   var songPlayBtn = document.getElementById('songPlayBtn');
   var songPlayIcon = document.getElementById('songPlayIcon');
   var songRemoveBtn = document.getElementById('songRemoveBtn');
+  var vizTrackBar = document.getElementById('vizTrackBar');
+  var vizTrackPlayBtn = document.getElementById('vizTrackPlayBtn');
+  var vizTrackPlayIcon = document.getElementById('vizTrackPlayIcon');
+  var vizTrackName = document.getElementById('vizTrackName');
+  var vizTrackSeek = document.getElementById('vizTrackSeek');
+  var vizTrackCurrent = document.getElementById('vizTrackCurrent');
+  var vizTrackDuration = document.getElementById('vizTrackDuration');
 
   // ---------------- Theme (dark / light) ----------------
   var THEME_KEY = 'heal-theme';
@@ -1188,9 +1252,15 @@
       statusDot.classList.remove('on');
       statusText.textContent = 'Idle';
     }
+    var songIsPlaying = state.mode === 'song' && state.playing;
     if (songPlayIcon){
-      var songIsPlaying = state.mode === 'song' && state.playing;
       songPlayIcon.className = songIsPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+    }
+    if (vizTrackPlayIcon){
+      vizTrackPlayIcon.className = songIsPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+    }
+    if (vizMusicBtn){
+      vizMusicBtn.classList.toggle('active', songIsPlaying);
     }
     updateWakeLock();
   }
@@ -1326,11 +1396,15 @@
 
       audioEl.addEventListener('loadedmetadata', function(){
         songDuration.textContent = formatTime(audioEl.duration);
+        vizTrackDuration.textContent = formatTime(audioEl.duration);
       });
       audioEl.addEventListener('timeupdate', function(){
         if (!audioEl.duration) return;
-        seekSlider.value = (audioEl.currentTime / audioEl.duration) * 1000;
+        var pct = (audioEl.currentTime / audioEl.duration) * 1000;
+        seekSlider.value = pct;
+        vizTrackSeek.value = pct;
         songCurrent.textContent = formatTime(audioEl.currentTime);
+        vizTrackCurrent.textContent = formatTime(audioEl.currentTime);
       });
       audioEl.addEventListener('ended', function(){
         state.playing = false;
@@ -1356,6 +1430,12 @@
     songDuration.textContent = '0:00';
     seekSlider.value = 0;
     songInfo.hidden = false;
+
+    vizTrackName.textContent = file.name;
+    vizTrackCurrent.textContent = '0:00';
+    vizTrackDuration.textContent = '0:00';
+    vizTrackSeek.value = 0;
+    vizTrackBar.hidden = false;
 
     activeName.textContent = file.name;
     activeWave.textContent = 'live frequency';
@@ -1395,6 +1475,7 @@
     if (audioEl) audioEl.removeAttribute('src');
     songInfo.hidden = true;
     songInput.value = '';
+    vizTrackBar.hidden = true;
     vizPanel.classList.remove('song-mode');
     if (state.mode === 'song'){
       state.mode = 'tone';
@@ -1419,6 +1500,26 @@
   seekSlider.addEventListener('input', function(){
     if (!audioEl || !audioEl.duration) return;
     audioEl.currentTime = (parseFloat(seekSlider.value) / 1000) * audioEl.duration;
+  });
+
+  // music icon: pick a track if none is loaded yet, otherwise toggle playback
+  vizMusicBtn.addEventListener('click', function(){
+    if (!audioEl || !audioEl.src){
+      songInput.click();
+    } else if (state.mode === 'song' && state.playing){
+      pauseSong();
+    } else {
+      playSong();
+    }
+  });
+
+  vizTrackPlayBtn.addEventListener('click', function(){
+    if (state.mode === 'song' && state.playing){ pauseSong(); } else { playSong(); }
+  });
+
+  vizTrackSeek.addEventListener('input', function(){
+    if (!audioEl || !audioEl.duration) return;
+    audioEl.currentTime = (parseFloat(vizTrackSeek.value) / 1000) * audioEl.duration;
   });
 
   // ---------------- Controls wiring ----------------
@@ -1486,7 +1587,18 @@
     var w = Math.max(1, Math.round(rect.width));
     var h = Math.max(1, Math.round(rect.height));
     if (renderer){ renderer.setSize(w, h, false); }
-    if (camera){ camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    if (camera){
+      camera.aspect = w / h;
+      // a rotated phone (fullscreen landscape) is much wider than tall — dolly the
+      // camera in as the aspect ratio widens so the scene fills the frame instead
+      // of floating small in the middle of a lot of empty space
+      if (camBaseDistance && controls){
+        var t = THREE.MathUtils.clamp((camera.aspect - 1.1) / (2.2 - 1.1), 0, 1);
+        var distFactor = THREE.MathUtils.lerp(1, 0.48, t);
+        camera.position.copy(controls.target).addScaledVector(camDir, camBaseDistance * distFactor);
+      }
+      camera.updateProjectionMatrix();
+    }
   }
   // ResizeObserver catches every size change (window resize, breakpoint
   // changes, AND the song-mode height transition) so the renderer's
@@ -1514,6 +1626,8 @@
   var RING_COUNT = 8;
 
   var scene, camera, renderer, controls;
+  var camDir = new THREE.Vector3();
+  var camBaseDistance = 0;
   var waveGroup, rowLines = [], rowData = [];
   var newRowBuffer = new Float32Array(SAMPLES);
   var lastFilterColor = null;
@@ -1521,6 +1635,12 @@
   var speakerGroupRef, earGroupRef, brainMesh, neuronDots = [];
   var currentEnergy = 0;
   var animT = 0;
+
+  var tmpHSL = { h: 0, s: 0, l: 0 };
+
+  // ---- distant celestial backdrop state ----
+  var starField = null, starTwinkleSeeds = null, nebulaSprites = [], celestialGroup = null;
+  var animT_stars = 0;
 
   function initScene(){
     scene = new THREE.Scene();
@@ -1547,6 +1667,12 @@
     ['pointerdown', 'wheel', 'touchstart'].forEach(function(evt){
       renderer.domElement.addEventListener(evt, function(){ controls.autoRotate = false; }, { passive: true });
     });
+
+    // remember the initial framing so wide/short viewports (a rotated phone
+    // in fullscreen) can dolly the camera in and keep the scene filling the frame
+    camDir.copy(camera.position).sub(controls.target);
+    camBaseDistance = camDir.length();
+    camDir.normalize();
 
     waveGroup = new THREE.Group();
     scene.add(waveGroup);
@@ -1652,6 +1778,104 @@
       scene.add(ringMesh);
       ringMeshes.push(ringMesh);
     }
+
+    // ---- distant celestial backdrop: a real-feeling deep-space field, ----
+    // ---- pushed far behind the wave/speaker/ear scene so it reads as sky, not clutter ----
+    celestialGroup = new THREE.Group();
+
+    var STAR_COUNT = 2400;
+    var STAR_RADIUS_MIN = 34, STAR_RADIUS_MAX = 70;
+    var starPositions = new Float32Array(STAR_COUNT * 3);
+    var starColors = new Float32Array(STAR_COUNT * 3);
+    var starSizes = new Float32Array(STAR_COUNT);
+    starTwinkleSeeds = new Float32Array(STAR_COUNT);
+    // realistic star colour temperatures: mostly white, with cooler blue and warmer amber stars mixed in
+    var STAR_TEMPS = [0xffffff, 0xffffff, 0xffffff, 0xcfe4ff, 0xaecbff, 0xfff2d6, 0xffe0b0];
+    var tmpStarColor = new THREE.Color();
+    for (var si = 0; si < STAR_COUNT; si++){
+      var six = si * 3;
+      // distribute on a sphere shell so stars stay a believable "far away" distance in every direction
+      var su = Math.random(), sv = Math.random();
+      var theta = su * Math.PI * 2;
+      var phi = Math.acos(2 * sv - 1);
+      var rad = THREE.MathUtils.lerp(STAR_RADIUS_MIN, STAR_RADIUS_MAX, Math.random());
+      starPositions[six]     = rad * Math.sin(phi) * Math.cos(theta);
+      starPositions[six + 1] = rad * Math.cos(phi) * 0.6; // flatten slightly so stars don't crowd directly overhead/underfoot
+      starPositions[six + 2] = rad * Math.sin(phi) * Math.sin(theta);
+
+      tmpStarColor.setHex(STAR_TEMPS[Math.floor(Math.random() * STAR_TEMPS.length)]);
+      starColors[six] = tmpStarColor.r;
+      starColors[six + 1] = tmpStarColor.g;
+      starColors[six + 2] = tmpStarColor.b;
+
+      starSizes[si] = Math.random() * Math.random() * 1.6 + 0.25; // mostly small, a few bright outliers
+      starTwinkleSeeds[si] = Math.random() * Math.PI * 2;
+    }
+    var starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+    var starMat = new THREE.PointsMaterial({
+      size: 0.16,
+      map: makeGlowTexture(),
+      transparent: true,
+      opacity: 0.9,
+      vertexColors: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true
+    });
+    starField = new THREE.Points(starGeo, starMat);
+    celestialGroup.add(starField);
+
+    // a couple of soft, far-off nebula clouds for depth and colour, well behind the stars' inner edge
+    var NEBULA_SPECS = [
+      { color: 'rgba(99,102,241,0.55)',  size: 40, az: 2.4,  el: 0.55, dist: 52 },
+      { color: 'rgba(13,148,136,0.4)',   size: 34, az: -1.1, el: -0.3, dist: 58 },
+      { color: 'rgba(217,119,6,0.3)',    size: 30, az: 0.3,  el: 0.9,  dist: 64 }
+    ];
+    NEBULA_SPECS.forEach(function(spec){
+      var tex = makeNebulaTexture(spec.color);
+      var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.6 });
+      var sprite = new THREE.Sprite(mat);
+      sprite.scale.set(spec.size, spec.size, 1);
+      sprite.position.set(
+        spec.dist * Math.cos(spec.el) * Math.cos(spec.az),
+        spec.dist * Math.sin(spec.el),
+        spec.dist * Math.cos(spec.el) * Math.sin(spec.az)
+      );
+      celestialGroup.add(sprite);
+      nebulaSprites.push(sprite);
+    });
+
+    scene.add(celestialGroup);
+  }
+
+
+  function makeGlowTexture(){
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    var c2 = cv.getContext('2d');
+    var grad = c2.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    c2.fillStyle = grad;
+    c2.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(cv);
+  }
+
+  function makeNebulaTexture(rgba){
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = 256;
+    var c2 = cv.getContext('2d');
+    var grad = c2.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grad.addColorStop(0, rgba);
+    grad.addColorStop(0.5, rgba.replace(/,[^,]+\)$/, ',0.18)'));
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    c2.fillStyle = grad;
+    c2.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(cv);
   }
 
   function makeEmojiSprite(emoji, size, yOffset){
@@ -1816,6 +2040,19 @@
     }
   }
 
+  function updateCelestial(energy){
+    if (!celestialGroup) return;
+    // the whole sky drifts at a barely-perceptible rate, like a very slow real sky pan
+    celestialGroup.rotation.y += 0.00006 + energy * 0.00004;
+
+    if (starField){
+      // gentle twinkle: brightness breathes per-star on its own cycle, subtly lifted by audio energy
+      animT_stars += 0.01;
+      var baseOpacity = 0.7 + energy * 0.25;
+      starField.material.opacity = Math.min(1, baseOpacity + Math.sin(animT_stars) * 0.06);
+    }
+  }
+
   function updateBob(){
     animT += 0.016;
     if (speakerGroupRef) speakerGroupRef.position.y = 0.15 + Math.sin(animT * 0.9) * 0.05;
@@ -1828,6 +2065,7 @@
     updateWave();
     updateRings(currentEnergy);
     updateBrain(currentEnergy);
+    updateCelestial(currentEnergy);
     updateBob();
     if (controls) controls.update();
     if (renderer && scene && camera) renderer.render(scene, camera);
