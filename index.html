@@ -26,6 +26,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <style>
   :root{
     --bg: #F1F2F5;
@@ -65,12 +67,12 @@
   }
 
   :root[data-theme="dark"]{
-    --bg: #0C0E12;
-    --bg-elev: #15181D;
-    --surface: #15181D;
-    --surface-2: #1C2027;
-    --border: #2A2F38;
-    --border-soft: #20242B;
+    --bg: #000000;
+    --bg-elev: #000000;
+    --surface: #000000;
+    --surface-2: #0A0A0A;
+    --border: #232323;
+    --border-soft: #1A1A1A;
     --text: #F1F2F5;
     --text-dim: #9AA1AC;
     --text-faint: #6B7280;
@@ -249,17 +251,28 @@
   .viz-label .name{ font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--accent); transition: color .4s ease; }
   .viz-label .wave{ font-size: 11px; color: var(--text-faint); text-transform: capitalize; margin-top: 2px; font-family: var(--font-mono); }
 
-  canvas#scope{
+  .viz-canvas-wrap{
+    position: relative;
     width: 100%;
     height: 120px;
-    display:block;
     margin-top: 18px;
     border-radius: var(--radius-md);
-    position: relative;
     z-index:1;
+    overflow: hidden;
     transition: height .25s ease;
   }
-  .viz-panel.song-mode canvas#scope{ height: 170px; }
+  .viz-panel.song-mode .viz-canvas-wrap{ height: 170px; }
+  canvas#scope{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display:block;
+    touch-action: none;
+    cursor: grab;
+  }
+  canvas#scope:active{ cursor: grabbing; }
+
 
   .viz-fullscreen-btn{
     position: absolute;
@@ -276,6 +289,36 @@
   }
   .viz-fullscreen-btn:hover{ color: var(--accent); border-color: var(--accent); }
   .viz-fullscreen-btn:active{ transform: scale(0.88); }
+
+  .viz-mic-btn{
+    position: absolute;
+    bottom: 12px; left: 12px;
+    width: 34px; height:34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-dim);
+    font-size: 14px;
+    z-index: 3;
+    transition: color .2s ease, border-color .2s ease, transform .2s ease, background-color .2s ease;
+  }
+  .viz-mic-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .viz-mic-btn:active{ transform: scale(0.88); }
+  .viz-mic-btn.active{
+    color: #fff;
+    border-color: #E11D48;
+    background: #E11D48;
+    animation: mic-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes mic-pulse{
+    0%, 100%{ box-shadow: 0 0 0 0 rgba(225,29,72,0.45); }
+    50%{ box-shadow: 0 0 0 7px rgba(225,29,72,0); }
+  }
+  .viz-panel.is-fullscreen .viz-mic-btn{
+    bottom: calc(var(--safe-bottom) + 20px);
+    left: 20px;
+  }
 
   /* ---------- Visualizer fullscreen mode ---------- */
   body.viz-fullscreen-active{ overflow: hidden; }
@@ -297,7 +340,7 @@
   .viz-panel.is-fullscreen .viz-freq .unit{ font-size: clamp(16px, 3vw, 22px); }
   .viz-panel.is-fullscreen .viz-label .name{ font-size: clamp(16px, 3vw, 22px); }
   .viz-panel.is-fullscreen .viz-label .wave{ font-size: clamp(12px, 2vw, 14px); }
-  .viz-panel.is-fullscreen canvas#scope{
+  .viz-panel.is-fullscreen .viz-canvas-wrap{
     flex: 1 1 auto;
     height: auto !important;
     min-height: 0;
@@ -535,7 +578,7 @@
     box-shadow: 0 -8px 30px rgba(20,25,35,0.10);
   }
   :root[data-theme="dark"] .player-inner{
-    background: rgba(21,24,29,0.82);
+    background: rgba(0,0,0,0.82);
     box-shadow: 0 -8px 30px rgba(0,0,0,0.35);
   }
   @media (min-width: 620px){
@@ -602,8 +645,8 @@
     .about-section{ grid-area: about; }
     .page-credit{ grid-area: credit; margin-top:0; }
     .preset-grid{ grid-template-columns: 1fr 1fr; }
-    canvas#scope{ height: 160px; }
-    .viz-panel.song-mode canvas#scope{ height: 220px; }
+    .viz-canvas-wrap{ height: 160px; }
+    .viz-panel.song-mode .viz-canvas-wrap{ height: 220px; }
     .player-inner{ padding: 14px 18px; }
   }
 
@@ -653,7 +696,12 @@
             <div class="wave" id="activeWave">sine wave</div>
           </div>
         </div>
-        <canvas id="scope"></canvas>
+        <div class="viz-canvas-wrap">
+          <canvas id="scope"></canvas>
+          <button class="viz-mic-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
+            <i class="bi bi-mic" id="vizMicIcon"></i>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -808,8 +856,9 @@
   var vizPanel = document.getElementById('vizPanel');
   var vizFullscreenBtn = document.getElementById('vizFullscreenBtn');
   var vizFullscreenIcon = document.getElementById('vizFullscreenIcon');
+  var vizMicBtn = document.getElementById('vizMicBtn');
+  var vizMicIcon = document.getElementById('vizMicIcon');
   var canvas = document.getElementById('scope');
-  var ctx = canvas.getContext('2d');
   var songInput = document.getElementById('songInput');
   var songInfo = document.getElementById('songInfo');
   var songName = document.getElementById('songName');
@@ -827,7 +876,7 @@
     var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
     themeIcon.className = current === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
     themeToggle.setAttribute('aria-label', current === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-    if (themeMeta) themeMeta.setAttribute('content', current === 'dark' ? '#0C0E12' : '#F1F2F5');
+    if (themeMeta) themeMeta.setAttribute('content', current === 'dark' ? '#000000' : '#F1F2F5');
   }
 
   themeToggle.addEventListener('click', function(){
@@ -988,6 +1037,7 @@
   function selectPreset(id){
     var p = getPreset(id);
     if (!p) return;
+    if (micActive) stopMic();
     if (state.mode === 'song'){
       if (audioEl && !audioEl.paused) audioEl.pause();
       state.playing = false;
@@ -1050,6 +1100,7 @@
   // ---------------- Audio ----------------
   var audioCtx = null, oscillator = null, gainNode = null, analyser = null, masterGain = null;
   var audioEl = null, songSourceNode = null, songGainNode = null, songObjectURL = null;
+  var micStream = null, micSourceNode = null, micAnalyser = null, micActive = false;
 
   function ensureAudio(){
     if (!audioCtx){
@@ -1066,6 +1117,7 @@
 
   function startTone(){
     ensureAudio();
+    if (micActive) stopMic();
     if (audioEl && !audioEl.paused) audioEl.pause();
     stopOscillatorOnly();
     state.mode = 'tone';
@@ -1143,6 +1195,86 @@
     updateWakeLock();
   }
 
+  // ---------------- Microphone input ----------------
+  function ensureMicAnalyser(){
+    ensureAudio();
+    if (!micAnalyser){
+      micAnalyser = audioCtx.createAnalyser();
+      micAnalyser.fftSize = 2048;
+    }
+  }
+
+  function startMic(){
+    if (micActive) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      activeWave.textContent = 'microphone not supported';
+      return;
+    }
+    ensureAudio();
+    // stop whatever else is making sound first, since the wave should
+    // reflect the microphone alone
+    if (state.mode === 'tone' && state.playing) stopTone();
+    if (state.mode === 'song' && state.playing) stopSong();
+
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    }).then(function(stream){
+      micStream = stream;
+      ensureMicAnalyser();
+      micSourceNode = audioCtx.createMediaStreamSource(stream);
+      // connected only to its own analyser, never to masterGain/destination —
+      // this keeps it silent (no feedback loop) and purely visual.
+      micSourceNode.connect(micAnalyser);
+
+      micActive = true;
+      state.mode = 'mic';
+      state.playing = true; // drives the wave loop + keeps the screen awake
+      state.activePresetId = null;
+      vizPanel.classList.add('song-mode');
+      presetGrid.querySelectorAll('.preset-card').forEach(function(c){ c.classList.remove('active'); });
+      updatePlayUI();
+      updateMicUI();
+    }).catch(function(){
+      activeWave.textContent = 'microphone access denied';
+    });
+  }
+
+  function stopMic(){
+    if (!micActive) return;
+    if (micStream){
+      micStream.getTracks().forEach(function(t){ t.stop(); });
+      micStream = null;
+    }
+    if (micSourceNode){ try { micSourceNode.disconnect(); } catch(e){} micSourceNode = null; }
+    micActive = false;
+    if (state.mode === 'mic'){
+      state.mode = 'tone';
+      state.playing = false;
+      vizPanel.classList.remove('song-mode');
+      syncUIFromState();
+      updatePlayUI();
+    }
+    updateMicUI();
+  }
+
+  function updateMicUI(){
+    vizMicBtn.classList.toggle('active', micActive);
+    vizMicIcon.className = micActive ? 'bi bi-mic-fill' : 'bi bi-mic';
+    vizMicBtn.setAttribute('aria-label', micActive ? 'Stop microphone' : 'Listen with microphone');
+    if (micActive){
+      activeName.textContent = 'Microphone Input';
+      activeWave.textContent = 'live frequency';
+      playerName.textContent = 'Microphone Input';
+      playerFreq.textContent = 'Listening…';
+      statusText.textContent = 'Listening';
+    }
+  }
+
+  vizMicBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (micActive) stopMic(); else startMic();
+  });
+
   // ---------------- Screen wake lock ----------------
   // Without this, phones dim/lock the screen after their idle timeout
   // (often ~30s) even while a tone or song keeps playing.
@@ -1187,6 +1319,7 @@
 
   function loadSong(file){
     ensureAudio();
+    if (micActive) stopMic();
     if (!audioEl){
       audioEl = new Audio();
       audioEl.crossOrigin = 'anonymous';
@@ -1293,6 +1426,7 @@
     var f = sliderToFreq(parseFloat(freqSlider.value));
     state.freq = f;
     state.activePresetId = null;
+    if (micActive) stopMic();
     if (audioEl && !audioEl.paused) audioEl.pause();
     state.mode = 'tone';
     vizPanel.classList.remove('song-mode');
@@ -1326,14 +1460,17 @@
   });
 
   playBtn.addEventListener('click', function(){
-    if (state.mode === 'song'){
+    if (state.mode === 'mic'){
+      stopMic();
+    } else if (state.mode === 'song'){
       if (state.playing){ pauseSong(); } else { playSong(); }
     } else {
       if (state.playing){ stopTone(); } else { startTone(); }
     }
   });
   stopBtn.addEventListener('click', function(){
-    if (state.mode === 'song'){ stopSong(); } else { stopTone(); }
+    if (state.mode === 'mic'){ stopMic(); }
+    else if (state.mode === 'song'){ stopSong(); } else { stopTone(); }
   });
 
   function freqToColor(f){
@@ -1343,17 +1480,18 @@
     return 'hsl(' + hue.toFixed(0) + ', 70%, 42%)';
   }
 
-  // ---------------- Visualizer ----------------
-  var dpr = Math.max(1, window.devicePixelRatio || 1);
+  // ---------------- Visualizer (3D) ----------------
   function resizeCanvas(){
     var rect = canvas.getBoundingClientRect();
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
+    var w = Math.max(1, Math.round(rect.width));
+    var h = Math.max(1, Math.round(rect.height));
+    if (renderer){ renderer.setSize(w, h, false); }
+    if (camera){ camera.aspect = w / h; camera.updateProjectionMatrix(); }
   }
   // ResizeObserver catches every size change (window resize, breakpoint
-  // changes, AND the song-mode height transition) so the canvas backing
-  // store always matches its displayed CSS size — a plain 'resize'
-  // listener misses that last case and left the waveform stretched.
+  // changes, AND the song-mode height transition) so the renderer's
+  // backing store always matches its displayed CSS size — a plain
+  // 'resize' listener misses that last case and left the scene stretched.
   if (window.ResizeObserver){
     new ResizeObserver(resizeCanvas).observe(canvas);
   } else {
@@ -1366,13 +1504,268 @@
   var smoothedSongFreq = null;
   var songFreqUpdateCounter = 0;
 
-  function getDominantFrequency(){
-    if (!analyser || !audioCtx) return null;
-    var bufferLength = analyser.frequencyBinCount;
+  // ---- Three.js scene: a scrolling "waterfall" of the waveform in 3D ----
+  var ROWS = 24;      // how many past frames of history are stacked into depth
+  var SAMPLES = 72;   // points sampled across each row
+  var ROW_SPACING = 0.42;
+  var ROW_WIDTH = 7;
+  var SPEAKER_Z = 1.1;
+  var EAR_Z = -((ROWS - 1) * ROW_SPACING) - 1.1;
+  var RING_COUNT = 8;
+
+  var scene, camera, renderer, controls;
+  var waveGroup, rowLines = [], rowData = [];
+  var newRowBuffer = new Float32Array(SAMPLES);
+  var lastFilterColor = null;
+  var speakerLight, driverMesh, ringMeshes = [];
+  var speakerGroupRef, earGroupRef, brainMesh, neuronDots = [];
+  var currentEnergy = 0;
+  var animT = 0;
+
+  function initScene(){
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.set(0, 3.4, 10);
+
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.minDistance = 3.5;
+    controls.maxDistance = 22;
+    controls.minPolarAngle = Math.PI * 0.08;
+    controls.maxPolarAngle = Math.PI * 0.85;
+    controls.target.set(0, 0.3, (SPEAKER_Z + EAR_Z) / 2);
+    controls.update();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.45;
+    ['pointerdown', 'wheel', 'touchstart'].forEach(function(evt){
+      renderer.domElement.addEventListener(evt, function(){ controls.autoRotate = false; }, { passive: true });
+    });
+
+    waveGroup = new THREE.Group();
+    scene.add(waveGroup);
+
+    for (var i = 0; i < ROWS; i++){
+      var geom = new THREE.BufferGeometry();
+      var positions = new Float32Array(SAMPLES * 3);
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      var mat = new THREE.LineBasicMaterial({
+        color: 0x4FD8BE,
+        transparent: true,
+        opacity: 1 - (i / ROWS) * 0.85
+      });
+      var line = new THREE.Line(geom, mat);
+      line.position.z = -i * ROW_SPACING;
+      waveGroup.add(line);
+      rowLines.push(line);
+      rowData.push(new Float32Array(SAMPLES));
+    }
+
+    var grid = new THREE.GridHelper(ROW_WIDTH * 1.5, 16, 0x888888, 0x888888);
+    grid.position.y = -1.3;
+    grid.position.z = -((ROWS - 1) * ROW_SPACING) * 0.5;
+    grid.material.transparent = true;
+    grid.material.opacity = 0.06;
+    scene.add(grid);
+
+    // ---- lighting (needed for the speaker/ear solid geometry below) ----
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    var keyLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    keyLight.position.set(3, 5, 4);
+    scene.add(keyLight);
+    speakerLight = new THREE.PointLight(0x4FD8BE, 1.3, 9);
+    speakerLight.position.set(0, 1.1, SPEAKER_Z + 0.5);
+    scene.add(speakerLight);
+
+    // ---- speaker (source) ----
+    var cabinet = new THREE.Mesh(
+      new THREE.BoxGeometry(1.15, 1.55, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.65 })
+    );
+    driverMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.42, 0.12, 32),
+      new THREE.MeshStandardMaterial({ color: 0x4FD8BE, emissive: 0x0c2e2a, roughness: 0.4 })
+    );
+    driverMesh.rotation.x = Math.PI / 2;
+    driverMesh.position.z = 0.3;
+    var speakerGroup = new THREE.Group();
+    speakerGroup.add(cabinet);
+    speakerGroup.add(driverMesh);
+    speakerGroup.add(makeEmojiSprite('🔊', 0.7, 1.35));
+    speakerGroup.position.set(0, 0.15, SPEAKER_Z);
+    scene.add(speakerGroup);
+    speakerGroupRef = speakerGroup;
+
+    // ---- ear (listener) ----
+    var earGroup = new THREE.Group();
+    earGroup.add(makeEmojiSprite('👂', 0.7, 1.3));
+
+    // ---- brain: sits just above the ear, "thinking" in sync with the sound ----
+    var brainCore = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x4FD8BE, emissive: 0x0c2e2a, roughness: 0.3, transparent: true, opacity: 0.9 })
+    );
+    brainMesh = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.42, 1),
+      new THREE.MeshBasicMaterial({ color: 0x4FD8BE, wireframe: true, transparent: true, opacity: 0.55 })
+    );
+    brainMesh.userData.core = brainCore;
+    var brainGroup = new THREE.Group();
+    brainGroup.add(brainCore);
+    brainGroup.add(brainMesh);
+    brainGroup.position.y = 1.05;
+    brainGroup.add(makeEmojiSprite('🧠', 0.6, 0.62));
+
+    // neurons scattered evenly over the brain's surface, each flickers on its own
+    var neuronCount = 10;
+    var dotGeo = new THREE.SphereGeometry(0.045, 8, 8);
+    for (var nd = 0; nd < neuronCount; nd++){
+      var phi = Math.acos(1 - 2 * (nd + 0.5) / neuronCount);
+      var theta = Math.PI * (1 + Math.sqrt(5)) * (nd + 0.5);
+      var r = 0.42;
+      var dotMat = new THREE.MeshBasicMaterial({ color: 0x4FD8BE, transparent: true, opacity: 0.2 });
+      var dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.set(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+      dot.userData.flash = 0;
+      brainGroup.add(dot);
+      neuronDots.push(dot);
+    }
+    earGroup.add(brainGroup);
+
+    earGroup.position.set(0, 0.15, EAR_Z);
+    scene.add(earGroup);
+    earGroupRef = earGroup;
+
+    // ---- traveling sound-wave rings between speaker and ear ----
+    var ringGeom = new THREE.RingGeometry(0.82, 0.96, 48);
+    for (var ri = 0; ri < RING_COUNT; ri++){
+      var ringMat = new THREE.MeshBasicMaterial({ color: 0x4FD8BE, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      var ringMesh = new THREE.Mesh(ringGeom, ringMat);
+      ringMesh.userData.t = ri / RING_COUNT;
+      ringMesh.position.y = 0.15;
+      scene.add(ringMesh);
+      ringMeshes.push(ringMesh);
+    }
+  }
+
+  function makeEmojiSprite(emoji, size, yOffset){
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    var c2 = cv.getContext('2d');
+    c2.font = '92px serif';
+    c2.textAlign = 'center';
+    c2.textBaseline = 'middle';
+    c2.fillText(emoji, 64, 70);
+    var tex = new THREE.CanvasTexture(cv);
+    var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    var sprite = new THREE.Sprite(mat);
+    sprite.scale.set(size, size, 1);
+    sprite.position.y = yOffset;
+    return sprite;
+  }
+
+  function computeEnergy(buf){
+    var sum = 0;
+    for (var i = 0; i < buf.length; i++){ sum += buf[i] * buf[i]; }
+    return Math.sqrt(sum / buf.length);
+  }
+
+  function updateRings(energy){
+    var speed = 0.0055 + energy * 0.004;
+    for (var i = 0; i < ringMeshes.length; i++){
+      var m = ringMeshes[i];
+      m.userData.t += speed;
+      if (m.userData.t > 1) m.userData.t -= 1;
+      var t = m.userData.t;
+      m.position.z = THREE.MathUtils.lerp(SPEAKER_Z, EAR_Z, t);
+      var hump = Math.sin(t * Math.PI);
+      var scale = 0.75 + energy * 1.3;
+      m.scale.set(scale, scale, scale);
+      m.material.opacity = hump * (0.25 + energy * 0.65);
+      m.material.color.copy(waveColor);
+    }
+  }
+
+  function sampleWave(){
+    var src = (state.mode === 'mic' && micAnalyser) ? micAnalyser : analyser;
+    if (state.playing && src){
+      var bufferLength = src.fftSize;
+      if (!timeDataArray || timeDataArray.length !== bufferLength){
+        timeDataArray = new Uint8Array(bufferLength);
+      }
+      src.getByteTimeDomainData(timeDataArray);
+      var gain = (state.mode === 'song') ? 1.8 : (state.mode === 'mic' ? 2.2 : 0.9);
+      for (var i = 0; i < SAMPLES; i++){
+        var idx = Math.floor((i / (SAMPLES - 1)) * (bufferLength - 1));
+        var v = (timeDataArray[idx] - 128) / 128;
+        newRowBuffer[i] = Math.max(-1, Math.min(1, v * gain));
+      }
+    } else {
+      idlePhase += 0.02;
+      var cycles = 3;
+      for (var j = 0; j < SAMPLES; j++){
+        newRowBuffer[j] = Math.sin((j / (SAMPLES - 1)) * Math.PI * 2 * cycles + idlePhase) * 0.55;
+      }
+    }
+    return newRowBuffer;
+  }
+
+  var waveColor = new THREE.Color();
+  function updateWave(){
+    var newRow = sampleWave();
+    for (var i = ROWS - 1; i > 0; i--){
+      rowData[i].set(rowData[i - 1]);
+    }
+    rowData[0].set(newRow);
+
+    try { waveColor.setStyle(state.color); } catch (e){ waveColor.set(0x4FD8BE); }
+    currentEnergy = computeEnergy(newRow);
+
+    if (driverMesh){
+      var pulse = 1 + currentEnergy * 0.5;
+      driverMesh.scale.set(pulse, 1, pulse);
+      driverMesh.material.color.copy(waveColor);
+      driverMesh.material.emissive.copy(waveColor).multiplyScalar(0.35 + currentEnergy * 0.4);
+    }
+    if (speakerLight){
+      speakerLight.color.copy(waveColor);
+      speakerLight.intensity = 0.9 + currentEnergy * 1.6;
+    }
+
+    for (var r = 0; r < ROWS; r++){
+      var arr = rowData[r];
+      var posAttr = rowLines[r].geometry.attributes.position;
+      var amp = 1.1 * (1 - (r / ROWS) * 0.35);
+      for (var s = 0; s < SAMPLES; s++){
+        var x = (s / (SAMPLES - 1) - 0.5) * ROW_WIDTH;
+        var y = arr[s] * amp;
+        posAttr.array[s * 3] = x;
+        posAttr.array[s * 3 + 1] = y;
+        posAttr.array[s * 3 + 2] = 0;
+      }
+      posAttr.needsUpdate = true;
+      rowLines[r].material.color.copy(waveColor);
+    }
+
+    if (state.color !== lastFilterColor){
+      lastFilterColor = state.color;
+      canvas.style.filter = 'drop-shadow(0 0 9px ' + state.color + ')';
+    }
+  }
+
+  function getDominantFrequency(src){
+    if (!src || !audioCtx) return null;
+    var bufferLength = src.frequencyBinCount;
     if (!freqDataArray || freqDataArray.length !== bufferLength){
       freqDataArray = new Uint8Array(bufferLength);
     }
-    analyser.getByteFrequencyData(freqDataArray);
+    src.getByteFrequencyData(freqDataArray);
 
     var maxVal = 0, maxIndex = -1;
     // skip the very first bin (near-DC) to avoid rumble/noise dominating
@@ -1385,14 +1778,16 @@
   }
 
   function updateSongFrequencyReadout(){
-    if (state.mode !== 'song' || !state.playing){
+    var isLive = (state.mode === 'song' || state.mode === 'mic') && state.playing;
+    if (!isLive){
       songFreqUpdateCounter = 0;
       return;
     }
     songFreqUpdateCounter++;
     if (songFreqUpdateCounter % 4 !== 0) return; // throttle for a readable, non-jittery number
 
-    var f = getDominantFrequency();
+    var src = (state.mode === 'mic') ? micAnalyser : analyser;
+    var f = getDominantFrequency(src);
     if (f == null) return;
     smoothedSongFreq = (smoothedSongFreq == null) ? f : (smoothedSongFreq * 0.7 + f * 0.3);
     var rounded = Math.round(smoothedSongFreq);
@@ -1400,58 +1795,51 @@
     playerFreq.textContent = rounded + ' Hz · live';
   }
 
-  function draw(){
-    requestAnimationFrame(draw);
-    var w = canvas.width, h = canvas.height;
-    if (!w || !h) return;
-    ctx.clearRect(0,0,w,h);
-
-    updateSongFrequencyReadout();
-
-    var color = state.color;
-    ctx.lineWidth = 2.5 * dpr;
-    ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = Math.min(12 * dpr, 18);
-    ctx.beginPath();
-
-    if (state.playing && analyser){
-      var bufferLength = analyser.fftSize;
-      if (!timeDataArray || timeDataArray.length !== bufferLength){
-        timeDataArray = new Uint8Array(bufferLength);
-      }
-      analyser.getByteTimeDomainData(timeDataArray);
-      var sliceWidth = w / bufferLength;
-      var x = 0;
-      // uploaded songs get a much bigger, more noticeable wave than plain tones
-      var gain = (state.mode === 'song') ? 2.6 : 1.15;
-      for (var i=0;i<bufferLength;i++){
-        var v = (timeDataArray[i] - 128) / 128.0; // -1..1
-        v = Math.max(-1, Math.min(1, v * gain));
-        var y = (h/2) + v * (h/2) * 0.96;
-        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-        x += sliceWidth;
-      }
-    } else {
-      idlePhase += 0.02;
-      var amp = h * 0.16;
-      var mid = h/2;
-      var cycles = 3;
-      for (var px=0; px<=w; px+=4){
-        var y2 = mid + Math.sin((px / w) * Math.PI * 2 * cycles + idlePhase) * amp;
-        if (px===0) ctx.moveTo(px,y2); else ctx.lineTo(px,y2);
-      }
+  function updateBrain(energy){
+    if (brainMesh){
+      brainMesh.rotation.y += 0.004 + energy * 0.01;
+      brainMesh.rotation.x += 0.0015;
+      var s = 1 + energy * 0.25;
+      brainMesh.scale.set(s, s, s);
+      brainMesh.material.color.copy(waveColor);
+      brainMesh.userData.core.scale.set(s, s, s);
+      brainMesh.userData.core.material.color.copy(waveColor);
+      brainMesh.userData.core.material.emissive.copy(waveColor).multiplyScalar(0.3 + energy * 0.5);
     }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    for (var i = 0; i < neuronDots.length; i++){
+      var d = neuronDots[i];
+      d.userData.flash *= 0.9;
+      // random neuron "firing" — more frequent the louder the sound gets
+      if (Math.random() < 0.01 + energy * 0.06) d.userData.flash = 1;
+      d.material.opacity = 0.15 + d.userData.flash * 0.85;
+      d.material.color.copy(waveColor);
+    }
+  }
+
+  function updateBob(){
+    animT += 0.016;
+    if (speakerGroupRef) speakerGroupRef.position.y = 0.15 + Math.sin(animT * 0.9) * 0.05;
+    if (earGroupRef) earGroupRef.position.y = 0.15 + Math.sin(animT * 0.9 + Math.PI) * 0.05;
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    updateSongFrequencyReadout();
+    updateWave();
+    updateRings(currentEnergy);
+    updateBrain(currentEnergy);
+    updateBob();
+    if (controls) controls.update();
+    if (renderer && scene && camera) renderer.render(scene, camera);
   }
 
   // ---------------- Init ----------------
   function init(){
+    initScene();
     resizeCanvas();
     selectPreset('healing');
     updatePlayUI();
-    requestAnimationFrame(draw);
+    requestAnimationFrame(animate);
   }
   init();
 
