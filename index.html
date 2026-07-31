@@ -132,14 +132,14 @@
   }
   .brand{ display:flex; align-items:center; gap:10px; }
   .brand-mark{
-    width: 48px; height:48px; border-radius: 13px;
+    max-width: auto; height:48px; border-radius: 13px;
     overflow: hidden;
     border: 1px solid var(--border);
     background: var(--surface-2);
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0;
   }
-  .brand-mark img{ width:100%; height:100%; object-fit: cover; display:block; }
+  .brand-mark img{ width:100%; height:100%; object-fit: contain; display:block; }
   .status-chip{
     font-family: var(--font-mono);
     font-size: 11px;
@@ -273,22 +273,18 @@
   }
   canvas#scope:active{ cursor: grabbing; }
 
-
-  .viz-fullscreen-btn{
+  canvas#scope2d{
     position: absolute;
-    top: 14px; right: 14px;
-    width: 34px; height:34px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    display:flex; align-items:center; justify-content:center;
-    color: var(--text-dim);
-    font-size: 14px;
-    z-index: 3;
-    transition: color .2s ease, border-color .2s ease, transform .2s ease, background-color .2s ease;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display:block;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
   }
-  .viz-fullscreen-btn:hover{ color: var(--accent); border-color: var(--accent); }
-  .viz-fullscreen-btn:active{ transform: scale(0.88); }
+  .viz-panel.mode-2d canvas#scope2d{ opacity: 1; pointer-events: auto; }
+  .viz-panel.mode-2d canvas#scope{ opacity: 0; pointer-events: none; }
 
   .viz-source-row{
     position: absolute;
@@ -296,7 +292,7 @@
     display:flex; align-items:center; gap: 8px;
     z-index: 3;
   }
-  .viz-mic-btn, .viz-music-btn{
+  .viz-mic-btn, .viz-music-btn, .viz-mode-btn, .viz-fullscreen-btn{
     width: 34px; height:34px;
     border-radius: 50%;
     border: 1px solid var(--border);
@@ -307,8 +303,10 @@
     flex-shrink: 0;
     transition: color .2s ease, border-color .2s ease, transform .2s ease, background-color .2s ease;
   }
-  .viz-mic-btn:hover, .viz-music-btn:hover{ color: var(--accent); border-color: var(--accent); }
-  .viz-mic-btn:active, .viz-music-btn:active{ transform: scale(0.88); }
+  .viz-mic-btn:hover, .viz-music-btn:hover, .viz-mode-btn:hover, .viz-fullscreen-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .viz-mic-btn:active, .viz-music-btn:active, .viz-mode-btn:active, .viz-fullscreen-btn:active{ transform: scale(0.88); }
+  .viz-mode-btn.active{ color: #fff; background: var(--accent); border-color: var(--accent); }
+  .viz-mode-btn.active:hover{ color: #fff; }
   .viz-mic-btn.active{
     color: #fff;
     border-color: #E11D48;
@@ -387,10 +385,6 @@
     min-height: 0;
     margin-top: 0;
     border-radius: 0;
-  }
-  .viz-panel.is-fullscreen .viz-fullscreen-btn{
-    top: calc(var(--safe-top) + 18px);
-    right: 20px;
   }
 
   /* ---------- Preset cards ---------- */
@@ -725,9 +719,6 @@
 
     <section class="viz-section">
       <div class="viz-panel" id="vizPanel">
-        <button class="viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer">
-          <i class="bi bi-arrows-fullscreen" id="vizFullscreenIcon"></i>
-        </button>
         <div class="viz-readout">
           <div class="viz-freq">
             <span class="num" id="freqNum">528</span>
@@ -740,12 +731,19 @@
         </div>
         <div class="viz-canvas-wrap">
           <canvas id="scope"></canvas>
+          <canvas id="scope2d"></canvas>
           <div class="viz-source-row">
             <button class="viz-mic-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
               <i class="bi bi-mic" id="vizMicIcon"></i>
             </button>
             <button class="viz-music-btn" id="vizMusicBtn" type="button" aria-label="Select a music track">
               <i class="bi bi-music-note-beamed" id="vizMusicIcon"></i>
+            </button>
+            <button class="viz-mode-btn" id="vizModeBtn" type="button" aria-label="Switch to 2D wave view">
+              <i class="bi bi-badge-3d" id="vizModeIcon"></i>
+            </button>
+            <button class="viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer">
+              <i class="bi bi-arrows-fullscreen" id="vizFullscreenIcon"></i>
             </button>
           </div>
         </div>
@@ -913,6 +911,10 @@
   var vizPanel = document.getElementById('vizPanel');
   var vizFullscreenBtn = document.getElementById('vizFullscreenBtn');
   var vizFullscreenIcon = document.getElementById('vizFullscreenIcon');
+  var vizModeBtn = document.getElementById('vizModeBtn');
+  var vizModeIcon = document.getElementById('vizModeIcon');
+  var scope2d = document.getElementById('scope2d');
+  var ctx2d = scope2d.getContext('2d');
   var vizMicBtn = document.getElementById('vizMicBtn');
   var vizMicIcon = document.getElementById('vizMicIcon');
   var vizMusicBtn = document.getElementById('vizMusicBtn');
@@ -1007,7 +1009,34 @@
   vizPanel.addEventListener('click', function(e){
     if (!isVizFullscreen) return;
     if (e.target.closest('.viz-fullscreen-btn')) return;
+    if (e.target.closest('.viz-mode-btn')) return;
     playBtn.click();
+  });
+
+  // ---------------- Visualizer 2D / 3D mode toggle ----------------
+  var VIZ_MODE_KEY = 'heal-viz-mode';
+  var vizMode = '3d'; // '3d' | '2d'
+  try {
+    var storedVizMode = localStorage.getItem(VIZ_MODE_KEY);
+    if (storedVizMode === '2d' || storedVizMode === '3d') vizMode = storedVizMode;
+  } catch(e){}
+
+  function setVizMode(mode){
+    vizMode = mode;
+    var is2d = mode === '2d';
+    vizPanel.classList.toggle('mode-2d', is2d);
+    vizModeBtn.classList.toggle('active', is2d);
+    vizModeIcon.className = is2d ? 'bi bi-soundwave' : 'bi bi-badge-3d';
+    vizModeBtn.setAttribute('aria-label', is2d ? 'Switch to 3D view' : 'Switch to 2D wave view');
+    // the 3D canvas only needs OrbitControls while it's actually visible
+    if (controls) controls.enabled = !is2d;
+    try { localStorage.setItem(VIZ_MODE_KEY, mode); } catch(e){}
+    resize2dCanvas();
+  }
+
+  vizModeBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    setVizMode(vizMode === '3d' ? '2d' : '3d');
   });
 
   // Stay in sync if the user exits native fullscreen via Esc, back
@@ -1583,8 +1612,90 @@
     return 'hsl(' + hue.toFixed(0) + ', 70%, 42%)';
   }
 
+  // ---------------- Visualizer (2D wave) ----------------
+  var dpr2d = 1;
+  function resize2dCanvas(){
+    var rect = scope2d.getBoundingClientRect();
+    var w = Math.max(1, Math.round(rect.width));
+    var h = Math.max(1, Math.round(rect.height));
+    dpr2d = Math.min(window.devicePixelRatio || 1, 2);
+    scope2d.width = w * dpr2d;
+    scope2d.height = h * dpr2d;
+  }
+
+  function draw2D(rowData0, energy){
+    var w = scope2d.width, h = scope2d.height;
+    if (!w || !h) return;
+    ctx2d.clearRect(0, 0, w, h);
+
+    var midY = h / 2;
+    var amp = (h / 2) * 0.82;
+    var n = rowData0.length;
+
+    ctx2d.save();
+    ctx2d.lineJoin = 'round';
+    ctx2d.lineCap = 'round';
+    ctx2d.shadowBlur = 14 * dpr2d;
+    ctx2d.shadowColor = state.color;
+    ctx2d.strokeStyle = state.color;
+    ctx2d.lineWidth = Math.max(2, 2.5 * dpr2d);
+
+    ctx2d.beginPath();
+    for (var i = 0; i < n; i++){
+      var x = (i / (n - 1)) * w;
+      var y = midY - rowData0[i] * amp;
+      if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
+    }
+    ctx2d.stroke();
+
+    // soft fill under the curve, tinted with the active color
+    ctx2d.shadowBlur = 0;
+    var grad = ctx2d.createLinearGradient(0, midY - amp, 0, midY + amp);
+    grad.addColorStop(0, hexToRgba(state.color, 0.22 + energy * 0.15));
+    grad.addColorStop(0.5, hexToRgba(state.color, 0.03));
+    grad.addColorStop(1, hexToRgba(state.color, 0));
+    ctx2d.lineTo(w, midY);
+    ctx2d.lineTo(0, midY);
+    ctx2d.closePath();
+    ctx2d.fillStyle = grad;
+    ctx2d.fill();
+
+    // faint center line for a classic scope feel
+    ctx2d.shadowBlur = 0;
+    ctx2d.strokeStyle = hexToRgba(state.color, 0.15);
+    ctx2d.lineWidth = Math.max(1, dpr2d);
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, midY);
+    ctx2d.lineTo(w, midY);
+    ctx2d.stroke();
+
+    ctx2d.restore();
+  }
+
+  // state.color can be a hex preset color or an hsl() string from the custom
+  // frequency slider, so normalize through the browser's own color parser
+  // (cached, since a slider drag can hit the same rounded hue repeatedly).
+  var rgbCache = {};
+  function colorToRgbParts(color){
+    if (rgbCache[color]) return rgbCache[color];
+    var probe = document.createElement('div');
+    probe.style.color = color;
+    document.body.appendChild(probe);
+    var computed = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(computed);
+    var parts = m ? [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)] : [79, 216, 190];
+    rgbCache[color] = parts;
+    return parts;
+  }
+  function hexToRgba(color, a){
+    var p = colorToRgbParts(color);
+    return 'rgba(' + p[0] + ',' + p[1] + ',' + p[2] + ',' + a + ')';
+  }
+
   // ---------------- Visualizer (3D) ----------------
   function resizeCanvas(){
+    resize2dCanvas();
     var rect = canvas.getBoundingClientRect();
     var w = Math.max(1, Math.round(rect.width));
     var h = Math.max(1, Math.round(rect.height));
@@ -2065,18 +2176,23 @@
     requestAnimationFrame(animate);
     updateSongFrequencyReadout();
     updateWave();
-    updateRings(currentEnergy);
-    updateBrain(currentEnergy);
-    updateCelestial(currentEnergy);
-    updateBob();
-    if (controls) controls.update();
-    if (renderer && scene && camera) renderer.render(scene, camera);
+    if (vizMode === '2d'){
+      draw2D(rowData[0], currentEnergy);
+    } else {
+      updateRings(currentEnergy);
+      updateBrain(currentEnergy);
+      updateCelestial(currentEnergy);
+      updateBob();
+      if (controls) controls.update();
+      if (renderer && scene && camera) renderer.render(scene, camera);
+    }
   }
 
   // ---------------- Init ----------------
   function init(){
     initScene();
     resizeCanvas();
+    setVizMode(vizMode);
     selectPreset('healing');
     updatePlayUI();
     requestAnimationFrame(animate);
