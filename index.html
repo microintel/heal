@@ -691,12 +691,265 @@
   }
 
   ::selection{ background: var(--accent); color:#FFFFFF; }
+
+  /* ---------- Hearing pathway (opens when the 3D brain is clicked) ---------- */
+  .viz-panel.hearing-mode .viz-canvas-wrap{ height: 320px; }
+  .hear-hint{
+    position:absolute; top:8px; right:8px; z-index:3;
+    font-size:10px; line-height:1; padding:6px 10px;
+    border-radius:999px; border:1px solid var(--border);
+    background: var(--surface); color: var(--text-dim);
+    pointer-events:none; white-space:nowrap;
+    animation: hear-hint-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes hear-hint-pulse{ 0%,100%{ opacity:.65; } 50%{ opacity:1; } }
+  .hear-hint.seen,
+  .viz-panel.mode-2d .hear-hint,
+  .viz-panel.hearing-mode .hear-hint{ display:none; }
+  .hear-overlay{
+    position:absolute; top:8px; left:8px; right:8px; z-index:3;
+    display:none; pointer-events:none;
+  }
+  .viz-panel.hearing-mode .hear-overlay{ display:block; }
+  .viz-panel.mode-2d .hear-overlay{ display:none; }
+  .viz-panel.is-fullscreen .hear-overlay{ top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  .hear-chips{ display:flex; flex-wrap:wrap; gap:4px; padding-right:40px; }
+  .hear-chip{
+    font-family: var(--font-mono); font-size:10px; line-height:1;
+    padding:5px 8px; border-radius:999px;
+    border:1px solid var(--border); background: var(--surface);
+    color: var(--text-faint);
+    transition: color .25s ease, background-color .25s ease, border-color .25s ease;
+  }
+  .hear-chip b{ font-weight:600; margin-right:3px; }
+  .hear-chip.on{ color:#fff; background: var(--accent); border-color: var(--accent); }
+  .hear-caption{
+    margin-top:6px; font-size:11px; line-height:1.35; color: var(--text-dim);
+    max-width: 70%;
+  }
+  .hear-close{
+    position:absolute; top:0; right:0; width:30px; height:30px; border-radius:50%;
+    border:1px solid var(--border); background: var(--surface); color: var(--text-dim);
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+    pointer-events:auto;
+  }
+  .hear-close:hover{ color: var(--accent); border-color: var(--accent); }
+  .hear-close:active{ transform: scale(0.88); }
+
+  /* =====================================================================
+     Minimal UI v2 — the scene fills the screen; everything else floats
+     ===================================================================== */
+  :root{
+    --glass: color-mix(in srgb, var(--surface) 72%, transparent);
+    --glass-solid: color-mix(in srgb, var(--surface) 94%, transparent);
+    --nav-h: 64px;
+    --nav-gap: 12px;
+  }
+  html, body{ overflow: hidden; }
+  .app{ max-width: none; margin: 0; min-height: 100dvh; }
+
+  /* top bar */
+  .topbar{
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    padding: calc(var(--safe-top) + 10px) 12px 0;
+    background: transparent; border: 0;
+    pointer-events: none;
+  }
+  .brand, .topbar-right{ pointer-events: auto; }
+  .brand-mark{
+    width: 40px; height: 40px; border-radius: 12px;
+    background: var(--glass); border: 1px solid var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+  .brand-mark img{ border-radius: 12px; }
+  .topbar-right{ gap: 8px; }
+  .status-chip{
+    height: 34px; padding: 0 12px;
+    background: var(--glass); border-color: var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+  .menu-wrap{ position: relative; }
+  .menu-btn, .rail .rail-btn{
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--glass); border: 1px solid var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim); font-size: 15px; line-height: 1;
+    transition: color .2s ease, border-color .2s ease, transform .15s ease, background-color .2s ease;
+  }
+  .menu-btn:hover, .rail .rail-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .menu-btn:active, .rail .rail-btn:active{ transform: scale(0.9); }
+  .menu-btn[aria-expanded="true"]{ color: var(--accent); border-color: var(--accent); }
+
+  .menu{
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+    min-width: 218px; padding: 6px;
+    background: var(--glass-solid);
+    backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--border-soft); border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+    transform-origin: top right;
+    animation: menu-pop .16s ease;
+  }
+  .menu[hidden]{ display: none; }
+  @keyframes menu-pop{ from{ opacity: 0; transform: scale(.94) translateY(-4px); } to{ opacity: 1; transform: none; } }
+  .menu-item{
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 11px 12px; border-radius: 11px;
+    font-size: 13.5px; font-weight: 500; text-align: left; color: var(--text);
+  }
+  .menu-item[hidden]{ display: none; }
+  .menu-item:hover, .menu-item:focus-visible{ background: var(--surface-2); outline: none; }
+  .menu-item i{ width: 18px; text-align: center; color: var(--text-dim); font-size: 15px; }
+  .menu-item .install-btn-icon{ width: 18px; height: 18px; border-radius: 5px; }
+  .menu-sep{ height: 1px; background: var(--border-soft); margin: 4px 6px; }
+
+  /* the scene */
+  .stage{ position: fixed; inset: 0; z-index: 1; }
+  .stage .viz-panel{
+    position: absolute; inset: 0; padding: 0; border: 0; border-radius: 0;
+    background: var(--bg); display: block; overflow: hidden;
+  }
+  .stage .viz-canvas-wrap{
+    position: absolute; inset: 0; height: 100% !important;
+    margin: 0; border-radius: 0;
+  }
+  .viz-panel.is-fullscreen{ position: fixed; }
+
+  /* HUD: the live frequency, top-left */
+  .stage .viz-readout{
+    position: absolute; z-index: 4;
+    top: calc(var(--safe-top) + 62px); left: 12px;
+    flex-direction: column; align-items: flex-start; gap: 2px;
+    padding: 8px 14px 9px; border-radius: 16px;
+    background: var(--glass); border: 1px solid var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+    pointer-events: none;
+  }
+  .stage .viz-freq .num{ font-size: 28px; }
+  .stage .viz-freq .unit{ font-size: 12px; }
+  .stage .viz-label{ text-align: left; }
+  .stage .viz-label .name{ font-size: 12px; }
+  .stage .viz-label .wave{ font-size: 10.5px; margin-top: 1px; }
+  .viz-panel.hearing-mode .viz-readout{ display: none; }
+
+  /* scene toolbar, top-right */
+  .rail{
+    position: absolute; z-index: 5;
+    top: calc(var(--safe-top) + 62px); right: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .rail .rail-btn.active{ color: #fff; background: var(--accent); border-color: var(--accent); }
+  .rail .rail-btn.active:hover{ color: #fff; }
+  .viz-panel.mode-2d .rail-3d{ display: none; }
+  .viz-panel.hearing-mode .rail-scene{ display: none; }
+  .viz-panel.is-fullscreen .rail{ top: calc(var(--safe-top) + 12px); }
+
+  /* hearing view overlay + hint sit clear of the floating UI */
+  .stage .hear-overlay{ top: calc(var(--safe-top) + 62px); left: 12px; right: 62px; }
+  .stage .hear-close{ display: none; }
+  .stage .hear-caption{ max-width: 100%; padding: 8px 12px; border-radius: 14px;
+    background: var(--glass); border: 1px solid var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); }
+  .stage .hear-hint{ top: calc(var(--safe-top) + 154px); left: 12px; right: auto; }
+
+  /* song seek line floats above the nav */
+  .stage .viz-track-bar{
+    position: absolute; z-index: 6; left: 12px; right: 12px;
+    bottom: calc(var(--safe-bottom) + var(--nav-gap) + var(--nav-h) + 10px);
+    max-width: 440px; margin: 0 auto; padding: 8px 12px; border-radius: 18px;
+    background: var(--glass); border: 1px solid var(--border-soft);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+
+  /* immersive mode: only the scene + toolbar remain */
+  body.viz-fullscreen-active .topbar,
+  body.viz-fullscreen-active .bottom-nav,
+  body.viz-fullscreen-active .sheet{ display: none; }
+
+  /* bottom navigation */
+  .bottom-nav{
+    position: fixed; z-index: 45; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--safe-bottom) + var(--nav-gap));
+    width: min(440px, calc(100% - 24px)); height: var(--nav-h);
+    display: grid; grid-template-columns: 1fr 1fr 78px 1fr 1fr; align-items: center;
+    padding: 0 6px; border-radius: 24px;
+    background: var(--glass-solid);
+    backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 10px 34px rgba(0,0,0,0.22);
+  }
+  .nav-tab{
+    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 10.5px; font-weight: 500; color: var(--text-faint);
+    transition: color .2s ease;
+  }
+  .nav-tab i{ font-size: 19px; line-height: 1; }
+  .nav-tab:hover{ color: var(--text-dim); }
+  .nav-tab.active{ color: var(--accent); font-weight: 600; }
+  .bottom-nav .play-btn{
+    justify-self: center; width: 54px; height: 54px;
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  /* slide-up sheet */
+  .sheet{
+    position: fixed; z-index: 50; left: 50%;
+    bottom: calc(var(--safe-bottom) + var(--nav-gap) + var(--nav-h) + 10px);
+    width: min(440px, calc(100% - 24px)); max-height: min(46dvh, 430px);
+    display: flex; flex-direction: column; margin: 0;
+    background: var(--glass-solid);
+    backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--border-soft); border-radius: 24px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    transform: translate(-50%, 18px); opacity: 0; visibility: hidden;
+    transition: transform .25s ease, opacity .2s ease, visibility 0s linear .25s;
+  }
+  .sheet.open{ transform: translate(-50%, 0); opacity: 1; visibility: visible; transition-delay: 0s; }
+  .sheet-head{
+    flex: none; position: relative; display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 14px 6px 18px; touch-action: none;
+  }
+  .sheet-grab{ position: absolute; top: 7px; left: 50%; width: 34px; height: 4px; border-radius: 4px; background: var(--border); transform: translateX(-50%); }
+  .sheet-title{ font-family: var(--font-display); font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .sheet-close{
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 11px;
+  }
+  .sheet-close:hover{ color: var(--accent); border-color: var(--accent); }
+  .sheet-body{ overflow-y: auto; padding: 6px 16px 16px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .sheet-panel[hidden]{ display: none; }
+  .sheet-note{ font-size: 11.5px; line-height: 1.5; color: var(--text-faint); margin-top: 2px; }
+  .sheet-note.warn{ color: var(--c-irritate); font-weight: 600; }
+  .sheet .field{ margin-bottom: 14px; }
+  .sheet .preset-grid{ gap: 10px; }
+  .sheet .preset-card{ padding: 12px; gap: 10px; }
+  .sheet .preset-icon{ width: 34px; height: 34px; font-size: 16px; border-radius: 10px; }
+  .sheet .preset-name{ font-size: 13.5px; }
+  .sheet .upload-drop{ padding: 18px 14px; }
+  .sheet .upload-drop i{ font-size: 22px; }
+  .sheet .page-credit{ margin-top: 16px; padding-top: 12px; }
+  .src-row{ display: flex; gap: 8px; margin-bottom: 12px; }
+  .src-row .src-btn{
+    flex: 1; width: auto; height: 44px; border-radius: 14px; gap: 8px; padding: 0 12px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .src-row .src-btn i{ font-size: 16px; }
+
+  @media (max-height: 520px){
+    .sheet{ max-height: calc(100dvh - 170px); }
+    .rail{ display: grid; grid-template-columns: repeat(2, 38px); }
+  }
+  @media (max-height: 700px) and (max-width: 600px){
+    body.sheet-open .rail{ opacity: 0; pointer-events: none; }
+  }
 </style>
 </head>
 <body>
 
 <div class="app">
 
+  <!-- ===== Top bar: logo, status, dropdown menu ===== -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark" id="brandMark">
@@ -704,69 +957,108 @@
       </div>
     </div>
     <div class="topbar-right">
-      <button class="install-btn" id="installBtn" type="button" hidden>
-        <img src="icon512_rounded.png" alt="" class="install-btn-icon">
-        <span>Install</span>
-      </button>
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode">
-        <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
-      </button>
       <div class="status-chip"><span class="status-dot" id="statusDot"></span><span id="statusText">Idle</span></div>
+      <div class="menu-wrap">
+        <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <i class="bi bi-three-dots"></i>
+        </button>
+        <div class="menu" id="menu" role="menu" hidden>
+          <button class="menu-item" id="themeToggle" type="button" role="menuitem" aria-label="Switch to dark mode">
+            <i class="bi bi-moon-stars-fill" id="themeIcon"></i><span>Light / dark mode</span>
+          </button>
+          <button class="menu-item" id="menuImmersive" type="button" role="menuitem">
+            <i class="bi bi-arrows-fullscreen"></i><span>Immersive view</span>
+          </button>
+          <button class="menu-item" id="installBtn" type="button" role="menuitem" hidden>
+            <img src="icon512_rounded.png" alt="" class="install-btn-icon"><span>Install app</span>
+          </button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" id="menuAbout" type="button" role="menuitem">
+            <i class="bi bi-info-circle"></i><span>About Heal</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="content">
-
-    <section class="viz-section">
-      <div class="viz-panel" id="vizPanel">
-        <div class="viz-readout">
-          <div class="viz-freq">
-            <span class="num" id="freqNum">528</span>
-            <span class="unit">Hz</span>
-          </div>
-          <div class="viz-label">
-            <div class="name" id="activeName">Healing Frequency</div>
-            <div class="wave" id="activeWave">sine wave</div>
-          </div>
+  <!-- ===== The scene: fills the whole screen ===== -->
+  <main class="stage">
+    <div class="viz-panel" id="vizPanel">
+      <div class="viz-readout">
+        <div class="viz-freq">
+          <span class="num" id="freqNum">528</span>
+          <span class="unit">Hz</span>
         </div>
-        <div class="viz-canvas-wrap">
-          <canvas id="scope"></canvas>
-          <canvas id="scope2d"></canvas>
-          <div class="viz-source-row">
-            <button class="viz-mic-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
-              <i class="bi bi-mic" id="vizMicIcon"></i>
-            </button>
-            <button class="viz-music-btn" id="vizMusicBtn" type="button" aria-label="Select a music track">
-              <i class="bi bi-music-note-beamed" id="vizMusicIcon"></i>
-            </button>
-            <button class="viz-mode-btn" id="vizModeBtn" type="button" aria-label="Switch to 2D wave view">
-              <i class="bi bi-badge-3d" id="vizModeIcon"></i>
-            </button>
-            <button class="viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer">
-              <i class="bi bi-arrows-fullscreen" id="vizFullscreenIcon"></i>
-            </button>
-          </div>
-        </div>
-        <div class="viz-track-bar" id="vizTrackBar" hidden>
-          <button class="ctrl-btn" id="vizTrackPlayBtn" type="button" aria-label="Play track">
-            <i class="bi bi-play-fill" id="vizTrackPlayIcon"></i>
-          </button>
-          <span class="viz-track-name" id="vizTrackName">—</span>
-          <input type="range" id="vizTrackSeek" min="0" max="1000" value="0" step="1">
-          <span class="viz-track-time"><span id="vizTrackCurrent">0:00</span>/<span id="vizTrackDuration">0:00</span></span>
+        <div class="viz-label">
+          <div class="name" id="activeName">Healing Frequency</div>
+          <div class="wave" id="activeWave">sine wave</div>
         </div>
       </div>
-    </section>
 
-    <section class="custom-section">
-      <div class="section-head"><h2>Custom Frequency</h2><span>20–20000 Hz</span></div>
-      <div class="custom-panel">
-
-        <div class="field">
-          <div class="field-label"><span>Frequency</span><b id="customFreqLabel">528 Hz</b></div>
-          <input type="range" id="freqSlider" min="0" max="1000" value="500" step="1">
+      <div class="viz-canvas-wrap">
+        <canvas id="scope"></canvas>
+        <canvas id="scope2d"></canvas>
+        <div class="hear-hint" id="hearHint" aria-hidden="true">🧠 Tap the brain to see how you hear</div>
+        <div class="hear-overlay" id="hearOverlay">
+          <div class="hear-caption" id="hearCaption"></div>
+          <button class="hear-close" id="hearClose" type="button" aria-label="Close hearing view"><i class="bi bi-x-lg"></i></button>
         </div>
 
+        <!-- scene toolbar -->
+        <div class="rail" id="rail">
+          <button class="rail-btn" id="stopBtn" type="button" title="Stop" aria-label="Stop">
+            <i class="bi bi-stop-fill"></i>
+          </button>
+          <button class="rail-btn rail-scene viz-mode-btn" id="vizModeBtn" type="button" aria-label="Switch to 2D wave view" title="2D / 3D">
+            <i class="bi bi-badge-3d" id="vizModeIcon"></i>
+          </button>
+          <button class="rail-btn rail-3d" id="hearBtn" type="button" aria-label="Show how you hear" title="How you hear">🧠</button>
+          <button class="rail-btn rail-3d rail-scene active" id="rotateBtn" type="button" aria-label="Toggle auto-rotate" title="Auto-rotate">
+            <i class="bi bi-arrow-repeat"></i>
+          </button>
+          <button class="rail-btn rail-3d rail-scene" id="resetViewBtn" type="button" aria-label="Reset view" title="Reset view">
+            <i class="bi bi-crosshair"></i>
+          </button>
+          <button class="rail-btn viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer" title="Immersive">
+            <i class="bi bi-arrows-fullscreen" id="vizFullscreenIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="viz-track-bar" id="vizTrackBar" hidden>
+        <button class="ctrl-btn" id="vizTrackPlayBtn" type="button" aria-label="Play track">
+          <i class="bi bi-play-fill" id="vizTrackPlayIcon"></i>
+        </button>
+        <span class="viz-track-name" id="vizTrackName">—</span>
+        <input type="range" id="vizTrackSeek" min="0" max="1000" value="0" step="1">
+        <span class="viz-track-time"><span id="vizTrackCurrent">0:00</span>/<span id="vizTrackDuration">0:00</span></span>
+      </div>
+    </div>
+  </main>
+
+  <!-- kept for the app logic (now-playing text lives in the HUD) -->
+  <div hidden>
+    <div id="playerSwatch"></div><div id="playerName"></div><div id="playerFreq"></div>
+  </div>
+
+  <!-- ===== Slide-up control sheet (opened from the bottom nav) ===== -->
+  <section class="sheet" id="sheet" aria-hidden="true" aria-label="Controls">
+    <div class="sheet-head" id="sheetHead">
+      <span class="sheet-grab"></span>
+      <h2 class="sheet-title" id="sheetTitle">Controls</h2>
+      <button class="sheet-close" id="sheetClose" type="button" aria-label="Close panel"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="sheet-panel" data-panel="presets" hidden>
+        <div class="preset-grid" id="presetGrid"></div>
+      </div>
+
+      <div class="sheet-panel" data-panel="tune" hidden>
+        <div class="field">
+          <div class="field-label"><span>Frequency · 20–20000 Hz</span><b id="customFreqLabel">528 Hz</b></div>
+          <input type="range" id="freqSlider" min="0" max="1000" value="500" step="1">
+        </div>
         <div class="field">
           <div class="field-label"><span>Waveform</span></div>
           <div class="wave-select" id="waveSelect">
@@ -776,23 +1068,25 @@
             <button class="wave-btn" data-wave="sawtooth"><i class="bi bi-graph-up"></i>saw</button>
           </div>
         </div>
+      </div>
 
+      <div class="sheet-panel" data-panel="volume" hidden>
         <div class="field">
           <div class="field-label"><span>Volume</span><b id="volLabel">40%</b></div>
           <input type="range" id="volSlider" min="0" max="100" value="40" step="1">
         </div>
-
+        <p class="sheet-note" id="volNote">Keep volume low, especially with headphones.</p>
       </div>
-    </section>
 
-    <section class="presets-section">
-      <div class="section-head"><h2>Presets</h2><span>tap to select</span></div>
-      <div class="preset-grid" id="presetGrid"></div>
-    </section>
-
-    <section class="song-section">
-      <div class="section-head"><h2>Upload Song</h2><span>watch the waveform live</span></div>
-      <div class="custom-panel">
+      <div class="sheet-panel" data-panel="music" hidden>
+        <div class="src-row">
+          <button class="viz-mic-btn src-btn" id="vizMicBtn" type="button" aria-label="Listen with microphone">
+            <i class="bi bi-mic" id="vizMicIcon"></i><span>Microphone</span>
+          </button>
+          <button class="viz-music-btn src-btn" id="vizMusicBtn" type="button" aria-label="Select a music track">
+            <i class="bi bi-music-note-beamed" id="vizMusicIcon"></i><span>Play / pause</span>
+          </button>
+        </div>
 
         <label class="upload-drop" for="songInput">
           <i class="bi bi-cloud-arrow-up"></i>
@@ -816,44 +1110,30 @@
             <input type="range" id="seekSlider" min="0" max="1000" value="0" step="1">
           </div>
         </div>
-
       </div>
-    </section>
 
-    <section class="about-section">
-      <div class="section-head"><h2>About</h2></div>
-      <div class="about-panel">
-        <strong>Heal</strong>, Feel the wave of pure sound.
-        Watch every frequency come alive in 3D.
-        Relax, focus, and explore the world of sound. but this is not a substitute for medical care and have no clinically proven therapeutic effect. Keep volume low, especially with headphones, and stop if you feel discomfort. The Irritating preset is intentionally harsh — use it briefly.
-      </div>
-    </section>
-
-    <p class="page-credit">Developed by <b>Microintel</b></p>
-
-  </main>
-
-  <div class="player-bar">
-    <div class="player-inner">
-      <div class="player-info">
-        <div class="player-swatch" id="playerSwatch">
-          <i class="bi bi-soundwave"></i>
+      <div class="sheet-panel" data-panel="about" hidden>
+        <div class="about-panel">
+          <strong>Heal</strong>, Feel the wave of pure sound.
+          Watch every frequency come alive in 3D.
+          Relax, focus, and explore the world of sound. but this is not a substitute for medical care and have no clinically proven therapeutic effect. Keep volume low, especially with headphones, and stop if you feel discomfort. The Irritating preset is intentionally harsh — use it briefly.
         </div>
-        <div class="player-text">
-          <div class="n" id="playerName">Healing Frequency</div>
-          <div class="f" id="playerFreq">528 Hz · sine</div>
-        </div>
+        <p class="page-credit">Developed by <b>Microintel</b></p>
       </div>
-      <div class="player-controls">
-        <button class="ctrl-btn" id="stopBtn" title="Stop">
-          <i class="bi bi-stop-fill"></i>
-        </button>
-        <button class="play-btn" id="playBtn" title="Play">
-          <i class="bi bi-play-fill" id="playIcon"></i>
-        </button>
-      </div>
+
     </div>
-  </div>
+  </section>
+
+  <!-- ===== Bottom navigation ===== -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Main">
+    <button class="nav-tab" type="button" data-sheet="presets"><i class="bi bi-grid-fill"></i><span>Presets</span></button>
+    <button class="nav-tab" type="button" data-sheet="tune"><i class="bi bi-sliders"></i><span>Tune</span></button>
+    <button class="play-btn" id="playBtn" type="button" title="Play" aria-label="Play">
+      <i class="bi bi-play-fill" id="playIcon"></i>
+    </button>
+    <button class="nav-tab" type="button" data-sheet="volume"><i class="bi bi-volume-up-fill"></i><span>Volume</span></button>
+    <button class="nav-tab" type="button" data-sheet="music"><i class="bi bi-music-note-list"></i><span>Music</span></button>
+  </nav>
 
 </div>
 
@@ -1010,6 +1290,7 @@
     if (!isVizFullscreen) return;
     if (e.target.closest('.viz-fullscreen-btn')) return;
     if (e.target.closest('.viz-mode-btn')) return;
+    if (e.target.closest('.rail-btn')) return;
     playBtn.click();
   });
 
@@ -1036,6 +1317,7 @@
 
   vizModeBtn.addEventListener('click', function(e){
     e.stopPropagation();
+    if (vizMode === '3d' && typeof exitHearing === 'function') exitHearing();
     setVizMode(vizMode === '3d' ? '2d' : '3d');
   });
 
@@ -1705,10 +1987,16 @@
       // a rotated phone (fullscreen landscape) is much wider than tall — dolly the
       // camera in as the aspect ratio widens so the scene fills the frame instead
       // of floating small in the middle of a lot of empty space
-      if (camBaseDistance && controls){
-        var t = THREE.MathUtils.clamp((camera.aspect - 1.1) / (2.2 - 1.1), 0, 1);
-        var distFactor = THREE.MathUtils.lerp(1, 0.48, t);
-        camera.position.copy(controls.target).addScaledVector(camDir, camBaseDistance * distFactor);
+      if (camBaseDistance && controls && !hearFlight){
+        if (hearActive){
+          // hearing view: keep the user's viewing angle, just refit the distance
+          var hd = camera.position.clone().sub(controls.target).normalize();
+          camera.position.copy(controls.target).addScaledVector(hd, hearFitDistance(camera.aspect));
+        } else {
+          var t = THREE.MathUtils.clamp((camera.aspect - 1.1) / (2.2 - 1.1), 0, 1);
+          var distFactor = THREE.MathUtils.lerp(1, 0.48, t);
+          camera.position.copy(controls.target).addScaledVector(camDir, camBaseDistance * distFactor);
+        }
       }
       camera.updateProjectionMatrix();
     }
@@ -1807,6 +2095,7 @@
     }
 
     var grid = new THREE.GridHelper(ROW_WIDTH * 1.5, 16, 0x888888, 0x888888);
+    gridRef = grid;
     grid.position.y = -1.3;
     grid.position.z = -((ROWS - 1) * ROW_SPACING) * 0.5;
     grid.material.transparent = true;
@@ -1962,6 +2251,8 @@
     });
 
     scene.add(celestialGroup);
+
+    initHearing();
   }
 
 
@@ -2153,6 +2444,832 @@
     }
   }
 
+  // ======================================================================
+  // Hearing pathway — opens when the little 3D brain is clicked.
+  // sound waves -> ear canal -> eardrum -> three tiny bones -> cochlea ->
+  // electrical pulses on the auditory nerve -> brain processing.
+  // Everything is driven live by the same analyser the visualizer already
+  // uses, so it follows whatever is playing (tone, your music, or the mic).
+  // ======================================================================
+  var hearGroup = null, hearActive = false, hearFlight = null;
+  var hearHidden = [], hearPrevAutoRotate = false;
+  var hearCenter = new THREE.Vector3(-0.8, 1.3, 0);   // stage-local framing centre
+  var hearWorldCenter = new THREE.Vector3();
+  var hearDir = new THREE.Vector3(1, 0.1, 0.14).normalize();
+  var gridRef = null, brainHit = null, hintGlow = null;
+  var hearRay = new THREE.Raycaster(), hearNdc = new THREE.Vector2();
+  var hearDown = { x: 0, y: 0 };
+
+  var HL = 12;                                   // frames of level history = travel time down the canal
+  var hearHist = new Float32Array(HL), hearHistI = 0;
+  var hearEnv = 0, hearPhase = 0, hearCycles = 3, hearDrum = 0, hearDrumAmp = 0;
+  var hearFreq = null;
+
+  var AIR_X0 = -4.9, AIR_X1 = -1.75;
+  var AIR_N = 260, airPoints = null, airRestX, airRestY, airRestZ, airP;
+  var hearRings = [];
+  var drumMesh = null, drumOrig = null, drumRim = null;
+  // eardrum rupture (full volume): tearable texture, shreds, flash, warning label
+  var drumCv = null, drumCtx = null, drumTex = null, drumCracks = [];
+  var rupt = 0, ruptDrawn = -1, ruptFlash = 0, ruptBurst = false;
+  var shredPts = null, shredVel = null, shredLife = 0, SHRED_N = 44;
+  var ruptFlashSp = null, ruptLabel = null;
+  var DRUM_R = 0.42, DRUM_C = { x: -0.1, y: 0.08 };   // drum radius, off-centre tear point (unit-disc coords)
+  var boneM = null, boneI = null, boneS = null;
+  var HAIR_N = 40, hairAct = new Float32Array(HAIR_N), hairDots = [], hairPos = [], hairMean = 0;
+  var nerveCurve = null, nerveMesh = null, apexPt = new THREE.Vector3(), nervePulses = [];
+  var BN = 46, bNodes = [], bEdges = [], bLines = null, bBody = null, bWire = null, bGroup = null;
+  var bGlows = [], bHist = new Float32Array(96), bHistI = 0, bEntry = 0, hearArrivals = 0, bMean = 0;
+  var hearChipEls = [], hearChipOn = [], hearCaptionEl = null, hearCaptionKey = '';
+  var hearTick = 0;
+  var AMBER_C = new THREE.Color(0xffb020), tmpMix = new THREE.Color();
+
+  function airRadius(x){
+    if (x < -4.6) return 1.0;
+    if (x < -3.4) return 0.7 + (0.34 - 0.7) * ((x + 4.6) / 1.2);
+    return 0.34;
+  }
+
+  function makeLabel(text, h){
+    var cv = document.createElement('canvas');
+    var c2 = cv.getContext('2d');
+    var fs = 40;
+    var font = '600 ' + fs + 'px Inter, system-ui, sans-serif';
+    c2.font = font;
+    var w = Math.ceil(c2.measureText(text).width) + 26;
+    cv.width = w; cv.height = fs + 26;
+    c2.font = font;
+    c2.textAlign = 'center'; c2.textBaseline = 'middle';
+    c2.lineJoin = 'round'; c2.lineWidth = 8;
+    c2.strokeStyle = 'rgba(8,12,18,0.92)';
+    c2.strokeText(text, w / 2, cv.height / 2 + 2);
+    c2.fillStyle = '#ffffff';
+    c2.fillText(text, w / 2, cv.height / 2 + 2);
+    var tex = new THREE.CanvasTexture(cv);
+    tex.minFilter = THREE.LinearFilter;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    sp.scale.set(h * cv.width / cv.height, h, 1);
+    sp.renderOrder = 20;
+    return sp;
+  }
+
+  function addLabel(parent, text, x, y, h){
+    var s = makeLabel(text, h);
+    s.position.set(x, y, 0.5);
+    parent.add(s);
+    return s;
+  }
+
+  function limbMesh(a, b, r, mat, pivot){
+    var ax = a.x - pivot.x, ay = a.y - pivot.y, bx = b.x - pivot.x, by = b.y - pivot.y;
+    var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx * dx + dy * dy);
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), mat);
+    m.position.set((ax + bx) / 2, (ay + by) / 2, 0);
+    m.rotation.z = Math.atan2(-dx, dy);
+    return m;
+  }
+  function ballMesh(p, r, mat, pivot){
+    var m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat);
+    m.position.set(p.x - pivot.x, p.y - pivot.y, 0);
+    return m;
+  }
+
+  function ghostTube(parent, geo, x, op){
+    var mat = new THREE.MeshStandardMaterial({ color: 0xf2b8a0, transparent: true, opacity: op || 0.2, side: THREE.DoubleSide, roughness: 0.7, depthWrite: false });
+    var m = new THREE.Mesh(geo, mat);
+    var w = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: 0xf2b8a0, transparent: true, opacity: 0.1 }));
+    [m, w].forEach(function(o){ o.rotation.z = -Math.PI / 2; o.position.set(x, 0, 0); parent.add(o); });
+  }
+
+  function clamp01(v){ return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
+  // jagged outline of the tear (unit-disc radius for a given angle)
+  function drumJag(th){
+    return 0.85 + 0.12 * Math.sin(5 * th + 1) + 0.07 * Math.sin(11 * th + 2) + 0.06 * Math.sin(23 * th + 0.5) + 0.04 * Math.sin(37 * th);
+  }
+
+  // paints the membrane: stress tint -> radial cracks -> jagged hole with a bloody torn edge
+  function drawDrumTexture(r){
+    if (!drumCtx) return;
+    var g = drumCtx, S = 256, k, c, n;
+    var st = clamp01(r / 0.3), cr = clamp01((r - 0.25) / 0.25), hp = clamp01((r - 0.5) / 0.4);
+    function P(x, y){ return [128 + x * 128, 128 - y * 128]; }
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = 'rgb(255,' + Math.round(255 - st * 85) + ',' + Math.round(255 - st * 95) + ')';
+    g.fillRect(0, 0, S, S);
+    if (cr > 0){
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      for (c = 0; c < drumCracks.length; c++){
+        var pts = drumCracks[c];
+        n = Math.max(1, Math.ceil(cr * (pts.length - 1)));
+        g.strokeStyle = 'rgba(95,5,25,0.95)'; g.lineWidth = 3.2;
+        g.beginPath();
+        for (k = 0; k <= n; k++){ var q = P(pts[k][0], pts[k][1]); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }
+        g.stroke();
+        g.strokeStyle = 'rgba(255,170,180,0.55)'; g.lineWidth = 1;
+        g.stroke();
+      }
+    }
+    if (hp > 0){
+      var F = 0.6 * (1 - Math.pow(1 - hp, 3));
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = '#000';
+      g.beginPath();
+      for (k = 0; k < 120; k++){
+        var th = k / 120 * Math.PI * 2, rr = F * drumJag(th);
+        var qq = P(DRUM_C.x + Math.cos(th) * rr, DRUM_C.y + Math.sin(th) * rr);
+        k ? g.lineTo(qq[0], qq[1]) : g.moveTo(qq[0], qq[1]);
+      }
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = 'source-atop';
+      g.lineJoin = 'round';
+      g.strokeStyle = 'rgba(150,8,28,0.95)'; g.lineWidth = 7; g.stroke();
+      g.strokeStyle = 'rgba(255,205,210,0.9)'; g.lineWidth = 2; g.stroke();
+      g.globalCompositeOperation = 'source-over';
+    }
+    drumTex.needsUpdate = true;
+    ruptDrawn = r;
+  }
+
+  function resetDrum(){
+    rupt = 0; ruptFlash = 0; ruptBurst = false; shredLife = 0;
+    if (shredPts) shredPts.visible = false;
+    if (ruptFlashSp) ruptFlashSp.material.opacity = 0;
+    if (ruptLabel){ ruptLabel.material.opacity = 0; ruptLabel.visible = false; }
+    drawDrumTexture(0);
+  }
+
+  // torn bits of membrane fly off the moment the hole opens
+  function burstShreds(){
+    var pa = shredPts.geometry.attributes.position.array, i;
+    for (i = 0; i < SHRED_N; i++){
+      var a = Math.random() * Math.PI * 2, rr = Math.random() * 0.45;
+      var lx = (DRUM_C.x + Math.cos(a) * rr) * DRUM_R, ly = (DRUM_C.y + Math.sin(a) * rr) * DRUM_R;
+      pa[i * 3] = -1.68; pa[i * 3 + 1] = ly; pa[i * 3 + 2] = -lx;
+      shredVel[i * 3] = 0.010 + Math.random() * 0.022;
+      shredVel[i * 3 + 1] = (Math.random() - 0.4) * 0.03;
+      shredVel[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
+    }
+    shredPts.geometry.attributes.position.needsUpdate = true;
+    shredPts.visible = true; shredLife = 1;
+    ruptFlash = 1;
+  }
+
+  function initHearing(){
+    hearGroup = new THREE.Group();
+    hearGroup.rotation.y = Math.PI / 2;           // stage +x (left→right on screen) = world -z
+    hearGroup.position.set(0, 0.15, EAR_Z);
+    hearGroup.visible = false;
+    scene.add(hearGroup);
+    hearGroup.updateMatrixWorld(true);
+    hearWorldCenter.copy(hearCenter);
+    hearGroup.localToWorld(hearWorldCenter);
+
+    var hl = new THREE.PointLight(0xffffff, 0.8, 20);
+    hl.position.set(-0.5, 2.6, 4.5);
+    hearGroup.add(hl);
+
+    // ---- faint temporal bone around the ear canal / middle / inner ear ----
+    var slabGeo = new THREE.BoxGeometry(4.6, 2.3, 1.4);
+    var slab = new THREE.Mesh(slabGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.035, depthWrite: false }));
+    slab.position.set(-0.55, -0.1, 0);
+    var slabEdges = new THREE.LineSegments(new THREE.EdgesGeometry(slabGeo), new THREE.LineBasicMaterial({ color: 0xaab4c0, transparent: true, opacity: 0.22 }));
+    slabEdges.position.copy(slab.position);
+    hearGroup.add(slab); hearGroup.add(slabEdges);
+
+    // ---- outer ear funnel + ear canal (open tubes, axis along stage x) ----
+    ghostTube(hearGroup, new THREE.CylinderGeometry(0.38, 0.72, 1.0, 28, 1, true), -3.9, 0.22);
+    ghostTube(hearGroup, new THREE.CylinderGeometry(0.38, 0.38, 1.7, 28, 1, true), -2.55, 0.22);
+    // pinna: curved cartilage flap with a rolled rim (helix), an inner ridge and a soft lobe
+    var skin = new THREE.MeshStandardMaterial({ color: 0xe8b49a, roughness: 0.6, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    var ps = new THREE.Shape();
+    ps.moveTo(0, 0.95);
+    ps.bezierCurveTo(-0.95, 1.1, -1.35, 0.25, -1.15, -0.45);
+    ps.bezierCurveTo(-1.08, -0.95, -0.55, -1.12, -0.2, -0.82);
+    ps.bezierCurveTo(-0.5, -0.5, -0.62, 0.3, -0.42, 0.58);
+    ps.bezierCurveTo(-0.32, 0.74, -0.15, 0.82, 0, 0.95);
+    var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.11, bevelSize: 0.1, bevelSegments: 5, curveSegments: 28 });
+    pg.translate(0, 0, -0.17);
+    var pinna = new THREE.Mesh(pg, skin);
+    pinna.position.set(-3.38, 0.0, -0.42);
+    hearGroup.add(pinna);
+    var rs2 = new THREE.Shape();           // inner ridge (antihelix)
+    rs2.moveTo(-0.18, 0.5); rs2.bezierCurveTo(-0.55, 0.62, -0.8, 0.2, -0.72, -0.3);
+    rs2.bezierCurveTo(-0.66, -0.55, -0.45, -0.62, -0.3, -0.5);
+    rs2.bezierCurveTo(-0.45, -0.3, -0.5, 0.1, -0.18, 0.5);
+    var rg = new THREE.ExtrudeGeometry(rs2, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.06, bevelSegments: 4, curveSegments: 24 });
+    var ridge = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0xd99a82, roughness: 0.55 }));
+    ridge.position.set(-3.38, 0, -0.18);
+    hearGroup.add(ridge);
+
+    // ---- air particles: bunch up and spread out as the real waveform passes ----
+    airRestX = new Float32Array(AIR_N); airRestY = new Float32Array(AIR_N);
+    airRestZ = new Float32Array(AIR_N); airP = new Float32Array(AIR_N);
+    var apos = new Float32Array(AIR_N * 3);
+    for (var ai = 0; ai < AIR_N; ai++){
+      var ax0 = AIR_X0 + Math.random() * (AIR_X1 - AIR_X0);
+      var rr = Math.sqrt(Math.random()) * airRadius(ax0) * 0.88, aa = Math.random() * Math.PI * 2;
+      airRestX[ai] = ax0; airRestY[ai] = rr * Math.sin(aa); airRestZ[ai] = rr * Math.cos(aa);
+      airP[ai] = (ax0 - AIR_X0) / (AIR_X1 - AIR_X0);
+      apos[ai * 3] = ax0; apos[ai * 3 + 1] = airRestY[ai]; apos[ai * 3 + 2] = airRestZ[ai];
+    }
+    var ageo = new THREE.BufferGeometry();
+    ageo.setAttribute('position', new THREE.BufferAttribute(apos, 3));
+    airPoints = new THREE.Points(ageo, new THREE.PointsMaterial({ size: 0.11, map: makeGlowTexture(), color: 0x4FD8BE, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true }));
+    airPoints.frustumCulled = false;
+    hearGroup.add(airPoints);
+
+    // ---- pressure wavefronts (rings sit on the compression peaks) ----
+    var rGeo = new THREE.CylinderGeometry(1, 1, 0.07, 40, 1, true);   // a thin band: reads as a wavefront from the side
+    for (var ri = 0; ri < 8; ri++){
+      var rm = new THREE.Mesh(rGeo, new THREE.MeshBasicMaterial({ color: 0x4FD8BE, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+      rm.rotation.z = Math.PI / 2;
+      rm.visible = false;
+      hearGroup.add(rm);
+      hearRings.push(rm);
+    }
+
+    // ---- eardrum (tympanic membrane): a disc whose surface really flexes ----
+    var dGeo = new THREE.RingGeometry(0.001, 0.42, 48, 14);
+    drumOrig = dGeo.attributes.position.array.slice();
+    drumMesh = new THREE.Mesh(dGeo, new THREE.MeshStandardMaterial({ color: 0xff9db0, emissive: 0x3a0f1a, roughness: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
+    drumMesh.rotation.y = Math.PI / 2;
+    drumMesh.position.set(-1.7, 0, 0);
+    hearGroup.add(drumMesh);
+    drumRim = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.022, 8, 40), new THREE.MeshStandardMaterial({ color: 0xe9c4b0, roughness: 0.6 }));
+    drumRim.rotation.y = Math.PI / 2;
+    drumRim.position.set(-1.7, 0, 0);
+    hearGroup.add(drumRim);
+
+    // ---- rupture assets: paintable membrane texture, torn shreds, flash and warning label ----
+    drumCv = document.createElement('canvas'); drumCv.width = drumCv.height = 256;
+    drumCtx = drumCv.getContext('2d');
+    drumTex = new THREE.CanvasTexture(drumCv);
+    drumMesh.material.map = drumTex;
+    drumMesh.material.alphaTest = 0.04;
+    drumMesh.material.needsUpdate = true;
+    for (var kc = 0; kc < 9; kc++){
+      var ka = kc / 9 * Math.PI * 2 + (Math.random() - 0.5) * 0.5, kl = 0.7 + Math.random() * 0.3, kp = [];
+      for (var ks = 0; ks <= 10; ks++){
+        var kt = ks / 10, jit = ks ? (Math.random() - 0.5) * 0.09 : 0;
+        kp.push([DRUM_C.x + Math.cos(ka) * kt * kl - Math.sin(ka) * jit, DRUM_C.y + Math.sin(ka) * kt * kl + Math.cos(ka) * jit]);
+      }
+      drumCracks.push(kp);
+    }
+    var shGeo = new THREE.BufferGeometry();
+    shGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SHRED_N * 3), 3));
+    shredVel = new Float32Array(SHRED_N * 3);
+    shredPts = new THREE.Points(shGeo, new THREE.PointsMaterial({ size: 0.085, map: makeGlowTexture(), color: 0xff6a85, transparent: true, opacity: 1, depthWrite: false, sizeAttenuation: true }));
+    shredPts.frustumCulled = false; shredPts.visible = false;
+    hearGroup.add(shredPts);
+    ruptFlashSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff2a3a, transparent: true, opacity: 0, depthWrite: false }));
+    ruptFlashSp.position.set(-1.7, 0, 0.05);
+    ruptFlashSp.scale.set(0.5, 0.5, 1);
+    hearGroup.add(ruptFlashSp);
+    ruptLabel = makeLabel('Eardrum torn!', 0.3);
+    ruptLabel.position.set(-1.7, 0.95, 0.5);
+    ruptLabel.material.opacity = 0; ruptLabel.visible = false;
+    hearGroup.add(ruptLabel);
+    drawDrumTexture(0);
+
+    // ---- ossicles: malleus -> incus -> stapes ----
+    var boneMat = new THREE.MeshStandardMaterial({ color: 0xf4e8cf, emissive: 0x221a08, roughness: 0.5 });
+    var pv;
+    pv = { x: -1.5, y: 0.32 };
+    boneM = new THREE.Group(); boneM.position.set(pv.x, pv.y, 0);
+    boneM.add(limbMesh({ x: -1.68, y: -0.2 }, pv, 0.04, boneMat, pv));
+    boneM.add(ballMesh(pv, 0.085, boneMat, pv));
+    hearGroup.add(boneM);
+    pv = { x: -1.05, y: 0.38 };
+    boneI = new THREE.Group(); boneI.position.set(pv.x, pv.y, 0);
+    boneI.add(ballMesh({ x: -1.3, y: 0.36 }, 0.08, boneMat, pv));
+    boneI.add(limbMesh({ x: -1.3, y: 0.36 }, pv, 0.045, boneMat, pv));
+    boneI.add(limbMesh(pv, { x: -0.95, y: -0.02 }, 0.033, boneMat, pv));
+    hearGroup.add(boneI);
+    pv = { x: -0.95, y: -0.02 };
+    boneS = new THREE.Group(); boneS.position.set(pv.x, pv.y, 0);
+    boneS.add(limbMesh(pv, { x: -0.44, y: -0.06 }, 0.03, boneMat, pv));
+    var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.035, 20), boneMat);
+    foot.rotation.z = Math.PI / 2; foot.position.set(-0.4 - pv.x, -0.06 - pv.y, 0);
+    boneS.add(foot);
+    var stir = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.014, 8, 18), boneMat);
+    stir.position.set(-0.64 - pv.x, -0.045 - pv.y, 0);
+    boneS.add(stir);
+    hearGroup.add(boneS);
+
+    // ---- cochlea: a snail-shell spiral; base (high pitch) -> apex (low pitch) ----
+    var cPts = [], CSTEPS = 120, ccx = 0.3, ccy = -0.12;
+    for (var cs = 0; cs <= CSTEPS; cs++){
+      var ct = cs / CSTEPS;
+      var cang = Math.PI + ct * 2.5 * Math.PI * 2;
+      var crad = 0.62 * (1 - 0.72 * ct);
+      cPts.push(new THREE.Vector3(ccx + crad * Math.cos(cang), ccy + crad * Math.sin(cang), -0.1 + 0.2 * ct));
+    }
+    var cCurve = new THREE.CatmullRomCurve3(cPts);
+    var cochlea = new THREE.Mesh(
+      new THREE.TubeGeometry(cCurve, 160, 0.07, 10, false),
+      new THREE.MeshStandardMaterial({ color: 0xf0b36b, emissive: 0x2a1604, roughness: 0.55, transparent: true, opacity: 0.55 })
+    );
+    hearGroup.add(cochlea);
+    for (var hk = 0; hk < HAIR_N; hk++){
+      var hp = cCurve.getPointAt(hk / (HAIR_N - 1));
+      hp.z += 0.075;
+      var hd = new THREE.Mesh(new THREE.SphereGeometry(0.034, 8, 8), new THREE.MeshBasicMaterial({ color: 0x4FD8BE }));
+      hd.position.copy(hp);
+      hearGroup.add(hd);
+      hairDots.push(hd);
+      hairPos.push(hp.clone());
+    }
+    apexPt.copy(cCurve.getPointAt(1));
+
+    // ---- auditory nerve: cochlea -> brain ----
+    nerveCurve = new THREE.CatmullRomCurve3([
+      apexPt.clone(),
+      new THREE.Vector3(0.6, 0.5, 0.12),
+      new THREE.Vector3(0.95, 0.8, 0.14),
+      new THREE.Vector3(1.5, 1.05, 0.12),
+      new THREE.Vector3(2.1, 1.3, 0.1)
+    ]);
+    nerveMesh = new THREE.Mesh(
+      new THREE.TubeGeometry(nerveCurve, 60, 0.035, 8, false),
+      new THREE.MeshStandardMaterial({ color: 0xd9b84a, emissive: 0x332600, roughness: 0.5 })
+    );
+    hearGroup.add(nerveMesh);
+    var pulseTex = makeGlowTexture();
+    for (var pi = 0; pi < 22; pi++){
+      var psp = new THREE.Sprite(new THREE.SpriteMaterial({ map: pulseTex, color: 0xffa400, transparent: true, depthWrite: false }));
+      psp.visible = false;
+      var core = new THREE.Sprite(new THREE.SpriteMaterial({ map: pulseTex, color: 0xffffff, transparent: true, depthWrite: false }));
+      core.scale.set(0.45, 0.45, 1);
+      psp.add(core);
+      psp.userData = { on: false, stage: 0, s: 0, k: 0, inten: 1, speed: 1 };
+      hearGroup.add(psp);
+      nervePulses.push(psp);
+    }
+
+    // ---- brain: translucent shell + a live neural network that lights up ----
+    bGroup = new THREE.Group();
+    bGroup.position.set(2.25, 2.3, 0);
+    hearGroup.add(bGroup);
+    // cerebrum: folded cortex (gyri + sulci), a deep centre fissure, pink tissue shading
+    var bg = new THREE.SphereGeometry(1, 110, 80);
+    var bp = bg.attributes.position, bcol = new Float32Array(bp.count * 3);
+    var cGroove = new THREE.Color(0xb96f80), cCrest = new THREE.Color(0xf4bcc6), cc = new THREE.Color();
+    for (var bv = 0; bv < bp.count; bv++){
+      var ux = bp.getX(bv), uy = bp.getY(bv), uz = bp.getZ(bv);
+      var n1 = Math.sin(9 * ux + 2.2 * Math.sin(6 * uy + 1.1) + 1.7 * uz);
+      var n2 = Math.sin(8 * uy + 2.0 * Math.sin(5 * uz + 0.7) + 1.3 * ux);
+      var n3 = Math.sin(10 * uz + 1.8 * Math.sin(7 * ux + 2.1));
+      var crest = 1 - Math.abs(n1 * 0.5 + n2 * 0.35 + n3 * 0.35);
+      crest = Math.max(0, Math.min(1, crest));
+      var rad = 1 + 0.075 * crest;
+      rad *= 1 - 0.16 * Math.exp(-(uz * uz) / 0.004) * Math.max(0, uy + 0.15);                   // longitudinal fissure
+      rad *= 1 + 0.1 * Math.exp(-(((ux + 0.05) * (ux + 0.05)) / 0.2 + ((uy + 0.5) * (uy + 0.5)) / 0.06)) * Math.min(1, Math.abs(uz) * 3); // temporal lobe bulge
+      bp.setXYZ(bv, ux * 1.45 * rad, uy * (uy < 0 ? 0.8 : 0.97) * rad, uz * 0.82 * rad);
+      cc.copy(cGroove).lerp(cCrest, crest);
+      bcol[bv * 3] = cc.r; bcol[bv * 3 + 1] = cc.g; bcol[bv * 3 + 2] = cc.b;
+    }
+    bg.setAttribute('color', new THREE.BufferAttribute(bcol, 3));
+    bg.computeVertexNormals();
+    bBody = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, emissive: 0x000000, roughness: 0.5, metalness: 0.05, transparent: true, opacity: 0.9 }));
+    bGroup.add(bBody);
+    // cerebellum (finely striped) + brainstem
+    var cbg = new THREE.SphereGeometry(1, 48, 36), cbp = cbg.attributes.position;
+    for (var cv = 0; cv < cbp.count; cv++){
+      var qx = cbp.getX(cv), qy = cbp.getY(cv), qz = cbp.getZ(cv), qr = 1 + 0.02 * Math.sin(qy * 24);
+      cbp.setXYZ(cv, qx * 0.58 * qr, qy * 0.36 * qr, qz * 0.52 * qr);
+    }
+    cbg.computeVertexNormals();
+    var cerebellum = new THREE.Mesh(cbg, new THREE.MeshStandardMaterial({ color: 0xd68e9c, roughness: 0.55, transparent: true, opacity: 0.85 }));
+    cerebellum.position.set(-0.95, -0.62, 0);
+    bGroup.add(cerebellum);
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.09, 0.75, 20), new THREE.MeshStandardMaterial({ color: 0xe0a0ae, roughness: 0.55 }));
+    stem.position.set(-0.1, -0.95, 0); stem.rotation.z = 0.08;
+    bGroup.add(stem);
+    // soft glows on the cortex that light up as the signal reaches them
+    var glowTex = makeGlowTexture();
+    [[-0.2, -0.45, 0.72, 1.0], [0.2, 0.35, 0.75, 1.3], [0.95, 0.1, 0.6, 1.1]].forEach(function(g){
+      var gs = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffb020, transparent: true, opacity: 0, depthWrite: false }));
+      gs.position.set(g[0], g[1], g[2]); gs.scale.set(g[3], g[3], 1);
+      bGroup.add(gs); bGlows.push(gs);
+    });
+
+    var seed = 7;
+    function rnd(){ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    var nodeGeo = new THREE.SphereGeometry(0.04, 8, 8), guard = 0;
+    while (bNodes.length < BN && guard < 4000){
+      guard++;
+      var px = (rnd() * 2 - 1) * 1.15, py = (rnd() * 2 - 1) * 0.72, pz = (rnd() * 2 - 1) * 0.5;
+      if ((px * px) / 1.32 + (py * py) / 0.52 + (pz * pz) / 0.25 > 1) continue;
+      var far = true;
+      for (var q = 0; q < bNodes.length; q++){
+        var o = bNodes[q].mesh.position;
+        if ((o.x - px) * (o.x - px) + (o.y - py) * (o.y - py) + (o.z - pz) * (o.z - pz) < 0.1156){ far = false; break; }
+      }
+      if (!far) continue;
+      var nm = new THREE.Mesh(nodeGeo, new THREE.MeshBasicMaterial({ color: 0x4FD8BE }));
+      nm.position.set(px, py, pz);
+      bGroup.add(nm);
+      bNodes.push({ mesh: nm, act: 0, depth: 0, lag: 0, nb: [] });
+    }
+    var edgeSeen = {};
+    for (var ei = 0; ei < bNodes.length; ei++){
+      var ds = [];
+      for (var ej = 0; ej < bNodes.length; ej++){
+        if (ej !== ei) ds.push({ j: ej, d: bNodes[ei].mesh.position.distanceTo(bNodes[ej].mesh.position) });
+      }
+      ds.sort(function(a, b){ return a.d - b.d; });
+      for (var en = 0; en < 3; en++){
+        var j = ds[en].j, key = Math.min(ei, j) + '_' + Math.max(ei, j);
+        if (edgeSeen[key]) continue;
+        edgeSeen[key] = true;
+        bEdges.push([ei, j]);
+        bNodes[ei].nb.push(j); bNodes[j].nb.push(ei);
+      }
+    }
+    // distance (in hops) from the auditory-cortex end where the nerve arrives
+    var entryLocal = new THREE.Vector3(-0.2, -0.55, 0.1);
+    var order = bNodes.map(function(n, i){ return { i: i, d: n.mesh.position.distanceTo(entryLocal) }; }).sort(function(a, b){ return a.d - b.d; });
+    var queue = [], seen = {};
+    for (var sd = 0; sd < 3; sd++){ queue.push(order[sd].i); seen[order[sd].i] = true; bNodes[order[sd].i].depth = 0; }
+    while (queue.length){
+      var cur = queue.shift();
+      bNodes[cur].nb.forEach(function(nb){
+        if (!seen[nb]){ seen[nb] = true; bNodes[nb].depth = bNodes[cur].depth + 1; queue.push(nb); }
+      });
+    }
+    bNodes.forEach(function(n){ n.lag = Math.round(n.depth * 5 + Math.random() * 3); });
+    var lpos = new Float32Array(bEdges.length * 6);
+    bEdges.forEach(function(e, k){
+      var a = bNodes[e[0]].mesh.position, b = bNodes[e[1]].mesh.position;
+      lpos.set([a.x, a.y, a.z, b.x, b.y, b.z], k * 6);
+    });
+    var lgeo = new THREE.BufferGeometry();
+    lgeo.setAttribute('position', new THREE.BufferAttribute(lpos, 3));
+    lgeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(bEdges.length * 6), 3));
+    bLines = new THREE.LineSegments(lgeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75 }));
+    bGroup.add(bLines);
+
+    // ---- labels ----
+    addLabel(hearGroup, 'Sound waves', -3.7, 1.6, 0.3);
+    addLabel(hearGroup, 'Ear', -4.0, -1.5, 0.3);
+    addLabel(hearGroup, 'Signal', 1.7, 0.45, 0.3);
+    addLabel(hearGroup, 'Brain', 2.25, 3.65, 0.34);
+
+    // ---- the original little brain: easy-to-hit invisible target + soft "tap me" glow ----
+    if (brainMesh && brainMesh.parent){
+      brainHit = new THREE.Mesh(new THREE.SphereGeometry(1.25, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
+      brainMesh.parent.add(brainHit);
+      hintGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x4FD8BE, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending }));
+      hintGlow.scale.set(1.5, 1.5, 1);
+      brainMesh.parent.add(hintGlow);
+    }
+
+    // ---- DOM + pointer wiring ----
+    hearCaptionEl = document.getElementById('hearCaption');
+    var chipNodes = document.querySelectorAll('#hearChips .hear-chip');
+    for (var cn = 0; cn < chipNodes.length; cn++){ hearChipEls.push(chipNodes[cn]); hearChipOn.push(false); }
+    var hintEl = document.getElementById('hearHint');
+    try { if (localStorage.getItem('heal-hear-seen') === '1') hintEl.classList.add('seen'); } catch(e){}
+    document.getElementById('hearClose').addEventListener('click', function(e){
+      e.stopPropagation();
+      exitHearing();
+    });
+    var dom = renderer.domElement;
+    dom.addEventListener('pointerdown', function(e){ hearDown.x = e.clientX; hearDown.y = e.clientY; }, { passive: true });
+    // Taps are detected from pointerdown/pointerup: on touch screens the orbit
+    // controls swallow the synthetic 'click', so relying on it never fires on phones.
+    var swallowUntil = 0;
+    dom.addEventListener('pointerup', function(e){
+      if (e.button > 0) return;
+      if (Math.abs(e.clientX - hearDown.x) > 10 || Math.abs(e.clientY - hearDown.y) > 10) return;   // that was a drag
+      if (brainUnderPointer(e)){
+        swallowUntil = Date.now() + 600;
+        enterHearing();
+      }
+    });
+    // if a click does follow, don't let the fullscreen "tap to play/pause" also fire
+    dom.addEventListener('click', function(e){
+      if (Date.now() < swallowUntil){ e.stopPropagation(); }
+    });
+    dom.addEventListener('pointermove', function(e){
+      if (e.buttons) return;
+      dom.style.cursor = brainUnderPointer(e) ? 'pointer' : '';
+    }, { passive: true });
+  }
+
+  function brainUnderPointer(e){
+    if (hearActive || hearFlight || vizMode !== '3d' || !brainHit) return false;
+    var r = renderer.domElement.getBoundingClientRect();
+    hearNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    hearRay.setFromCamera(hearNdc, camera);
+    return hearRay.intersectObject(brainHit, false).length > 0;
+  }
+
+  function hearFitDistance(aspect){
+    var th = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    return Math.max(5.9 / (2 * th), 9.6 / (2 * th * aspect));
+  }
+
+  function enterHearing(){
+    if (hearActive || !hearGroup) return;
+    hearActive = true;
+    vizPanel.classList.add('hearing-mode');
+    hearGroup.visible = true;
+    hearHidden = [waveGroup, gridRef, speakerGroupRef, earGroupRef].concat(ringMeshes);
+    hearHidden.forEach(function(o){ if (o) o.visible = false; });
+    hearPrevAutoRotate = controls.autoRotate;
+    controls.autoRotate = false;
+    hearFlight = { t: 0, toHear: true, sp: camera.position.clone(), st: controls.target.clone() };
+    controls.enabled = false;
+    hearCaptionKey = '';
+    resetDrum();
+    try { localStorage.setItem('heal-hear-seen', '1'); } catch(e){}
+  }
+
+  function exitHearing(){
+    if (!hearActive) return;
+    hearActive = false;
+    vizPanel.classList.remove('hearing-mode');
+    hearGroup.visible = false;
+    hearHidden.forEach(function(o){ if (o) o.visible = true; });
+    controls.autoRotate = hearPrevAutoRotate;
+    hearFlight = { t: 0, toHear: false, sp: camera.position.clone(), st: controls.target.clone() };
+    controls.enabled = false;
+  }
+
+  function updateHearFlight(){
+    if (!hearFlight) return;
+    hearFlight.t += 1 / 70;
+    var k = Math.min(1, hearFlight.t);
+    var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    var tgt, pos;
+    if (hearFlight.toHear){
+      tgt = hearWorldCenter;
+      pos = tgt.clone().addScaledVector(hearDir, hearFitDistance(camera.aspect));
+    } else {
+      tgt = new THREE.Vector3(0, 0.3, (SPEAKER_Z + EAR_Z) / 2);
+      var t2 = THREE.MathUtils.clamp((camera.aspect - 1.1) / (2.2 - 1.1), 0, 1);
+      pos = tgt.clone().addScaledVector(camDir, camBaseDistance * THREE.MathUtils.lerp(1, 0.48, t2));
+    }
+    camera.position.lerpVectors(hearFlight.sp, pos, e);
+    controls.target.lerpVectors(hearFlight.st, tgt, e);
+    if (k >= 1){
+      hearFlight = null;
+      controls.enabled = (vizMode === '3d');
+    }
+  }
+
+  function hearEnvAt(p){
+    var f = Math.max(0, Math.min(1, p)) * (HL - 1);
+    var i0 = Math.floor(f), fr = f - i0;
+    var a = hearHist[(hearHistI - i0 + HL * 2) % HL];
+    var b = hearHist[(hearHistI - Math.min(i0 + 1, HL - 1) + HL * 2) % HL];
+    return a + (b - a) * fr;
+  }
+
+  function spawnPulse(k, inten){
+    for (var i = 0; i < nervePulses.length; i++){
+      var sp = nervePulses[i], u = sp.userData;
+      if (u.on) continue;
+      u.on = true; u.stage = 0; u.s = 0; u.k = k; u.inten = inten; u.speed = 0.9 + Math.random() * 0.25;
+      sp.visible = true;
+      sp.position.copy(hairPos[k]);
+      return;
+    }
+  }
+
+  function updateHearing(){
+    if (!hearGroup || !hearGroup.visible) return;
+    var playing = state.playing, twoPi = Math.PI * 2, i;
+
+    // --- how loud is the sound right now (fast attack, gentle release) ---
+    var raw = playing ? Math.min(1, currentEnergy * 2.0) : (0.05 + 0.025 * Math.sin(animT * 2.2));
+    hearEnv = raw > hearEnv ? hearEnv * 0.35 + raw * 0.65 : hearEnv * 0.88 + raw * 0.12;
+    hearHistI = (hearHistI + 1) % HL;
+    hearHist[hearHistI] = hearEnv;
+
+    // pitch decides how tightly packed the visible waves are
+    var f = (state.mode === 'tone') ? state.freq : (smoothedSongFreq || 300);
+    var cycT = 1.5 + 5 * Math.max(0, Math.min(1, Math.log(Math.max(f, 20) / 60) / Math.log(300)));
+    hearCycles += (cycT - hearCycles) * 0.05;
+    hearPhase += 0.45;
+
+    // --- 1) air molecules in the canal ---
+    var pa = airPoints.geometry.attributes.position.array;
+    for (i = 0; i < AIR_N; i++){
+      var p = airP[i];
+      pa[i * 3] = airRestX[i] + 0.2 * hearEnvAt(p) * Math.sin(p * hearCycles * twoPi - hearPhase);
+    }
+    airPoints.geometry.attributes.position.needsUpdate = true;
+    airPoints.material.color.copy(waveColor);
+
+    // --- wavefront rings ride on the compression peaks ---
+    var ph0 = (hearPhase / twoPi) % 1;
+    for (i = 0; i < hearRings.length; i++){
+      var rp = (ph0 + 0.5 + i) / hearCycles, ring = hearRings[i];
+      if (rp > 1){ ring.visible = false; continue; }
+      var rx = AIR_X0 + rp * (AIR_X1 - AIR_X0);
+      var rs = airRadius(rx) * 0.95;
+      ring.visible = true;
+      ring.position.x = rx;
+      ring.scale.set(rs, 1, rs);
+      ring.material.opacity = Math.min(0.7, hearEnvAt(rp) * 1.1) * (0.3 + 0.7 * Math.sin(rp * Math.PI));
+      ring.material.color.copy(waveColor);
+    }
+
+    // --- 2) eardrum beats with the sound (and tears at full volume) ---
+    if (playing && state.volume >= 0.98 && rupt < 1){
+      rupt = Math.min(1, rupt + 1 / 190);
+    } else if (state.volume < 0.9 && rupt > 0){
+      resetDrum();                                   // volume lowered: the drum is shown healed again
+    }
+    var stS = clamp01(rupt / 0.3), hp = clamp01((rupt - 0.5) / 0.4);
+    var holeF = 0.6 * (1 - Math.pow(1 - hp, 3));
+    var cond = 1 - clamp01((rupt - 0.5) / 0.35);     // how much vibration still gets through (0 = none)
+    if (rupt >= 0.5 && !ruptBurst){ ruptBurst = true; burstShreds(); }
+    if (rupt < 0.5) ruptBurst = false;
+    if (Math.abs(rupt - ruptDrawn) > 0.001 && rupt > 0) drawDrumTexture(rupt);
+
+    hearDrum = 0.2 * hearEnvAt(1) * Math.sin(hearCycles * twoPi - hearPhase) * (1 + 1.3 * stS) * cond;
+    hearDrumAmp = hearDrumAmp * 0.9 + Math.abs(hearDrum) * 0.1;
+    var jitter = (1 - hp) * stS * 0.02 * Math.sin(hearPhase * 6.3);
+    var curlAmt = 0.17 * hp;
+    var dpos = drumMesh.geometry.attributes.position;
+    for (i = 0; i < dpos.count; i++){
+      var dx = drumOrig[i * 3], dy = drumOrig[i * 3 + 1];
+      var rr = Math.sqrt(dx * dx + dy * dy) / DRUM_R;
+      var dz = (hearDrum + jitter) * 1.4 * (1 - rr * rr);
+      if (hp > 0){
+        var hx = dx / DRUM_R - DRUM_C.x, hy = dy / DRUM_R - DRUM_C.y;
+        var hth = Math.atan2(hy, hx);
+        var edge = Math.sqrt(hx * hx + hy * hy) - holeF * drumJag(hth);
+        if (edge < 0.3){
+          var w = edge < 0 ? 1 : 1 - edge / 0.3;
+          dz += w * w * curlAmt * (0.6 + 0.4 * Math.sin(hth * 3 + hearPhase * 0.9)) * (1 - Math.pow(rr, 4));
+        }
+      }
+      dpos.array[i * 3 + 2] = dz;
+    }
+    dpos.needsUpdate = true;
+    drumMesh.geometry.computeVertexNormals();
+    drumMesh.material.emissive.setRGB(0.23 + hearDrumAmp * 3 + stS * 0.35 + hp * 0.15, 0.06, 0.1);
+
+    // flying shreds, red flash and warning label
+    if (shredPts && shredPts.visible){
+      var sp2 = shredPts.geometry.attributes.position.array;
+      for (i = 0; i < SHRED_N; i++){
+        sp2[i * 3] += shredVel[i * 3]; sp2[i * 3 + 1] += shredVel[i * 3 + 1]; sp2[i * 3 + 2] += shredVel[i * 3 + 2];
+        shredVel[i * 3 + 1] -= 0.0007;
+      }
+      shredPts.geometry.attributes.position.needsUpdate = true;
+      shredLife -= 0.011;
+      shredPts.material.opacity = clamp01(shredLife * 1.6);
+      if (shredLife <= 0) shredPts.visible = false;
+    }
+    if (ruptFlash > 0.01){
+      ruptFlash *= 0.93;
+      ruptFlashSp.material.opacity = ruptFlash * 0.9;
+      var fs2 = 0.5 + (1 - ruptFlash) * 2.4;
+      ruptFlashSp.scale.set(fs2, fs2, 1);
+    } else if (ruptFlashSp) ruptFlashSp.material.opacity = 0;
+    if (ruptLabel){
+      var lt = rupt >= 0.55 ? 1 : 0;
+      ruptLabel.material.opacity += (lt - ruptLabel.material.opacity) * 0.08;
+      ruptLabel.visible = ruptLabel.material.opacity > 0.02;
+    }
+
+    // --- 3) three bones pass the push along and amplify it ---
+    boneM.rotation.z = hearDrum * 1.1;
+    boneI.rotation.z = -hearDrum * 0.9;
+    boneS.position.x = -0.95 + hearDrum * 0.7;
+
+    // --- 4) cochlea: each hair cell listens to its own pitch (base = high, apex = low) ---
+    var src = (state.mode === 'mic' && micAnalyser) ? micAnalyser : analyser;
+    var sum = 0, sq = 0;
+    if (playing && src && audioCtx){
+      var n = src.frequencyBinCount;
+      if (!hearFreq || hearFreq.length !== n) hearFreq = new Uint8Array(n);
+      src.getByteFrequencyData(hearFreq);
+      var nyq = audioCtx.sampleRate / 2;
+      for (i = 0; i < HAIR_N; i++){
+        var fk = 20 * Math.pow(1000, 1 - i / (HAIR_N - 1));
+        var lo = Math.max(0, Math.floor(fk / 1.1 / nyq * n)), hi = Math.min(n - 1, Math.max(lo, Math.ceil(fk * 1.1 / nyq * n)));
+        var mx = 0;
+        for (var bI = lo; bI <= hi; bI++){ if (hearFreq[bI] > mx) mx = hearFreq[bI]; }
+        var v = Math.pow(mx / 255, 1.6) * cond;   // a torn drum passes nothing on
+        hairAct[i] = Math.max(v, hairAct[i] * 0.86);
+      }
+    } else {
+      for (i = 0; i < HAIR_N; i++) hairAct[i] *= 0.9;
+    }
+    for (i = 0; i < HAIR_N; i++){
+      sum += hairAct[i]; sq += hairAct[i] * hairAct[i];
+      var a = hairAct[i], hd = hairDots[i];
+      tmpMix.copy(waveColor).lerp(AMBER_C, Math.min(1, a * 1.6));
+      hd.material.color.copy(tmpMix);
+      var hs = 1 + a * 1.9;
+      hd.scale.set(hs, hs, hs);
+    }
+    hairMean = Math.min(1, sum / HAIR_N * 4);
+
+    // --- 5) hair cells fire electrical pulses onto the auditory nerve ---
+    if (sq > 0.05){
+      var tries = sq > 3 ? 2 : 1;
+      for (var t = 0; t < tries; t++){
+        if (Math.random() < Math.min(0.75, sq * 0.35 + 0.05)){
+          var pick = Math.random() * sq, acc = 0, kk = 0;
+          for (i = 0; i < HAIR_N; i++){ acc += hairAct[i] * hairAct[i]; if (acc >= pick){ kk = i; break; } }
+          spawnPulse(kk, Math.min(1, 0.4 + hairAct[kk]));
+        }
+      }
+    }
+    var activePulses = 0;
+    hearArrivals = 0;
+    for (i = 0; i < nervePulses.length; i++){
+      var sp = nervePulses[i], u = sp.userData;
+      if (!u.on) continue;
+      activePulses++;
+      if (u.stage === 0){
+        u.s += 0.14 * u.speed;
+        if (u.s >= 1){ u.stage = 1; u.s = 0; sp.position.copy(apexPt); }
+        else sp.position.lerpVectors(hairPos[u.k], apexPt, u.s);
+      } else {
+        u.s += 0.021 * u.speed;
+        if (u.s >= 1){
+          u.on = false; sp.visible = false;
+          hearArrivals += u.inten;
+          continue;
+        }
+        nerveCurve.getPointAt(u.s, sp.position);
+      }
+      var psz = 0.13 + 0.14 * u.inten;
+      sp.scale.set(psz, psz, 1);
+    }
+    nerveMesh.material.emissive.setRGB(0.2 + Math.min(1, activePulses / 8) * 0.8, 0.15 + Math.min(1, activePulses / 8) * 0.45, 0.0);
+
+    // --- 6) brain: the signal arrives at the auditory cortex and spreads outward ---
+    bEntry = Math.min(1, bEntry * 0.88 + hearArrivals * 0.3);
+    bHistI = (bHistI + 1) % bHist.length;
+    bHist[bHistI] = bEntry;
+    var msum = 0;
+    for (i = 0; i < bNodes.length; i++){
+      var nd = bNodes[i];
+      var target = bHist[(bHistI - nd.lag + bHist.length * 2) % bHist.length] * (0.7 + 0.3 * Math.random());
+      nd.act = Math.max(target, nd.act * 0.9);
+      // once the brain is "awake", neurons chatter back and forth on their own
+      if (bMean > 0.12 && Math.random() < 0.012) nd.act = Math.max(nd.act, 0.45 + bMean * 0.5);
+      msum += nd.act;
+      tmpMix.copy(waveColor).lerp(AMBER_C, Math.min(1, nd.act * 1.4));
+      nd.mesh.material.color.copy(tmpMix);
+      var ns = 1 + nd.act * 1.4;
+      nd.mesh.scale.set(ns, ns, ns);
+    }
+    bMean = bMean * 0.9 + (msum / bNodes.length) * 0.1 * 1.0;
+    var lc = bLines.geometry.attributes.color.array;
+    for (i = 0; i < bEdges.length; i++){
+      var ea = Math.max(bNodes[bEdges[i][0]].act, bNodes[bEdges[i][1]].act);
+      tmpMix.copy(waveColor).lerp(AMBER_C, Math.min(1, ea * 1.5));
+      var br = 0.45 + 0.55 * Math.min(1, ea * 1.5);
+      lc[i * 6] = lc[i * 6 + 3] = tmpMix.r * br;
+      lc[i * 6 + 1] = lc[i * 6 + 4] = tmpMix.g * br;
+      lc[i * 6 + 2] = lc[i * 6 + 5] = tmpMix.b * br;
+    }
+    bLines.geometry.attributes.color.needsUpdate = true;
+    bBody.material.emissive.copy(AMBER_C).multiplyScalar(Math.min(0.5, bMean * 1.6));
+    bBody.material.opacity = 0.9;
+    var gsum = [0, 0, 0], gcnt = [0, 0, 0];
+    for (i = 0; i < bNodes.length; i++){
+      var gi = bNodes[i].depth <= 1 ? 0 : (bNodes[i].depth <= 4 ? 1 : 2);
+      gsum[gi] += bNodes[i].act; gcnt[gi]++;
+    }
+    for (i = 0; i < 3; i++){
+      bGlows[i].material.opacity = gcnt[i] ? Math.min(0.7, (gsum[i] / gcnt[i]) * 1.4) : 0;
+    }
+    bGroup.rotation.y = Math.sin(animT * 0.5) * 0.12;
+
+    // --- step chips + caption (throttled so the DOM isn't hammered) ---
+    hearTick++;
+    if (hearTick % 5 === 0){
+      var on = [hearEnv > 0.09, hearDrumAmp > 0.012, hearDrumAmp > 0.012, hairMean > 0.06, activePulses > 0, bMean > 0.07];
+      for (i = 0; i < hearChipEls.length; i++){
+        if (on[i] !== hearChipOn[i]){ hearChipOn[i] = on[i]; hearChipEls[i].classList.toggle('on', on[i]); }
+      }
+      var torn = rupt >= 0.55;
+      var key = (playing ? '1' : '0') + (torn ? 'T' : '') + state.mode + (state.mode === 'tone' ? Math.round(state.freq) : '');
+      if (key !== hearCaptionKey){
+        hearCaptionKey = key;
+        var who = state.mode === 'song' ? 'your music' : (state.mode === 'mic' ? 'the microphone' : Math.round(state.freq) + ' Hz tone');
+        hearCaptionEl.textContent = torn
+          ? '⚠ Full volume tore the eardrum. With a hole in it, sound can no longer reach the tiny bones, the cochlea or the brain. Lower the volume to see it healed.'
+          : playing
+          ? 'Live: ' + who + ' is travelling from the ear to the brain as an electrical signal.'
+          : 'Press play (a tone or your music) and watch the sound travel from ear to brain.';
+      }
+    }
+  }
+
   function updateCelestial(energy){
     if (!celestialGroup) return;
     // the whole sky drifts at a barely-perceptible rate, like a very slow real sky pan
@@ -2183,10 +3300,127 @@
       updateBrain(currentEnergy);
       updateCelestial(currentEnergy);
       updateBob();
+      updateHearFlight();
+      updateHearing();
+      if (hintGlow) hintGlow.material.opacity = hearActive ? 0 : 0.18 + 0.14 * Math.sin(animT * 3);
       if (controls) controls.update();
       if (renderer && scene && camera) renderer.render(scene, camera);
     }
   }
+
+
+  // ---------------- Minimal UI: dropdown menu, bottom-nav sheets, scene toolbar ----------------
+  var uiMenuBtn = document.getElementById('menuBtn');
+  var uiMenu = document.getElementById('menu');
+  var uiSheet = document.getElementById('sheet');
+  var uiSheetTitle = document.getElementById('sheetTitle');
+  var uiSheetHead = document.getElementById('sheetHead');
+  var uiTabs = document.querySelectorAll('.nav-tab');
+  var uiPanels = uiSheet.querySelectorAll('.sheet-panel');
+  var uiTitles = { presets: 'Presets', tune: 'Tune', volume: 'Volume', music: 'Music', about: 'About' };
+  var uiActiveSheet = null;
+
+  function closeMenu(){
+    uiMenu.hidden = true;
+    uiMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+  function openSheet(name){
+    uiActiveSheet = name;
+    uiPanels.forEach(function(p){ p.hidden = p.getAttribute('data-panel') !== name; });
+    uiSheetTitle.textContent = uiTitles[name] || '';
+    uiSheet.classList.add('open');
+    uiSheet.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open');
+    uiTabs.forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-sheet') === name); });
+    closeMenu();
+  }
+  function closeSheet(){
+    uiActiveSheet = null;
+    uiSheet.classList.remove('open');
+    uiSheet.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sheet-open');
+    uiTabs.forEach(function(t){ t.classList.remove('active'); });
+  }
+
+  uiTabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var name = t.getAttribute('data-sheet');
+      if (uiActiveSheet === name) closeSheet(); else openSheet(name);
+    });
+  });
+  document.getElementById('sheetClose').addEventListener('click', closeSheet);
+
+  // swipe the sheet header down to dismiss
+  var uiDragY = null;
+  uiSheetHead.addEventListener('pointerdown', function(e){ uiDragY = e.clientY; });
+  uiSheetHead.addEventListener('pointermove', function(e){
+    if (uiDragY !== null && e.clientY - uiDragY > 50){ uiDragY = null; closeSheet(); }
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(evt){
+    uiSheetHead.addEventListener(evt, function(){ uiDragY = null; });
+  });
+
+  uiMenuBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = uiMenu.hidden;
+    uiMenu.hidden = !open;
+    uiMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  uiMenu.addEventListener('click', function(e){ if (e.target.closest('.menu-item')) closeMenu(); });
+  document.addEventListener('click', function(e){
+    if (!uiMenu.hidden && !e.target.closest('.menu-wrap')) closeMenu();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    if (!uiMenu.hidden) closeMenu(); else if (uiActiveSheet) closeSheet();
+  });
+
+  document.getElementById('menuImmersive').addEventListener('click', function(){ vizFullscreenBtn.click(); });
+  document.getElementById('menuAbout').addEventListener('click', function(){ openSheet('about'); });
+
+  // scene toolbar
+  var hearBtn = document.getElementById('hearBtn');
+  var rotateBtn = document.getElementById('rotateBtn');
+  var resetViewBtn = document.getElementById('resetViewBtn');
+
+  hearBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (hearActive) exitHearing(); else { closeSheet(); enterHearing(); }
+  });
+  rotateBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (!controls || hearActive) return;
+    controls.autoRotate = !controls.autoRotate;
+    rotateBtn.classList.toggle('active', controls.autoRotate);
+  });
+  resetViewBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (!controls || !camera || hearActive || hearFlight) return;
+    // glide back to the default framing (same flight used when leaving the hearing view)
+    hearFlight = { t: 0, toHear: false, sp: camera.position.clone(), st: controls.target.clone() };
+    controls.enabled = false;
+  });
+  // auto-rotate switches itself off when you drag the scene; keep the button honest
+  setInterval(function(){
+    if (controls) rotateBtn.classList.toggle('active', !!controls.autoRotate);
+  }, 400);
+
+  // opening the hearing view (brain tap or button) clears the sheet away
+  new MutationObserver(function(){
+    if (vizPanel.classList.contains('hearing-mode')) closeSheet();
+  }).observe(vizPanel, { attributes: true, attributeFilter: ['class'] });
+
+  // volume warning (ties in with the eardrum view)
+  var volNote = document.getElementById('volNote');
+  function syncVolNote(){
+    var full = parseInt(volSlider.value, 10) >= 98;
+    volNote.classList.toggle('warn', full);
+    volNote.textContent = full
+      ? 'Full volume can hurt your ears. In the brain view, the eardrum tears at this level.'
+      : 'Keep volume low, especially with headphones.';
+  }
+  volSlider.addEventListener('input', syncVolNote);
+  syncVolNote();
 
   // ---------------- Init ----------------
   function init(){
