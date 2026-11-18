@@ -283,8 +283,41 @@
     pointer-events: none;
     transition: opacity .2s ease;
   }
-  .viz-panel.mode-2d canvas#scope2d{ opacity: 1; pointer-events: auto; }
+  .viz-panel.mode-2d canvas#scope2d{ opacity: 1; pointer-events: auto; touch-action: none; will-change: transform; }
   .viz-panel.mode-2d canvas#scope{ opacity: 0; pointer-events: none; }
+
+  canvas#scopeSpec{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display:block;
+    opacity: 0;
+    pointer-events: none;
+    touch-action: none;
+    cursor: grab;
+    transition: opacity .2s ease;
+  }
+  canvas#scopeSpec:active{ cursor: grabbing; }
+  .viz-panel.mode-spec canvas#scopeSpec{ opacity: 1; pointer-events: auto; }
+  .viz-panel.mode-spec canvas#scope{ opacity: 0; pointer-events: none; }
+  .viz-panel.mode-spec .rail-3d{ display: none; }
+  .viz-panel.mode-spec .hear-hint,
+  .viz-panel.mode-spec .hear-overlay{ display: none; }
+
+  /* single "view" button with a dropdown: Brain / Waves / Spectrogram */
+  .viz-mode-wrap{ position: relative; }
+  .viz-menu{
+    top: 0; right: calc(100% + 8px);
+    min-width: 168px; padding: 5px;
+    transform-origin: top right;
+  }
+  .viz-menu .menu-item{ padding: 10px 11px; gap: 11px; }
+  .viz-menu .menu-item .vz-emoji{ font-style: normal; font-size: 15px; line-height: 1; }
+  .viz-menu .menu-item .vz-check{ margin-left: auto; width: auto; color: var(--accent); opacity: 0; }
+  .viz-menu .menu-item[aria-checked="true"]{ color: var(--accent); }
+  .viz-menu .menu-item[aria-checked="true"] i{ color: var(--accent); }
+  .viz-menu .menu-item[aria-checked="true"] .vz-check{ opacity: 1; }
 
   .viz-source-row{
     position: absolute;
@@ -943,6 +976,17 @@
   @media (max-height: 700px) and (max-width: 600px){
     body.sheet-open .rail{ opacity: 0; pointer-events: none; }
   }
+
+  /* ---- minimal UI: status is just a dot, no caption under the preset name ---- */
+  #statusText{ display: none; }
+  .status-chip,
+  .stage .status-chip{
+    height: auto; padding: 0; border: 0; background: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .status-dot{ width: 8px; height: 8px; }
+  .viz-label .wave{ display: none; }
+  .viz-label .wave.alert{ display: block; }
 </style>
 </head>
 <body>
@@ -998,6 +1042,7 @@
       <div class="viz-canvas-wrap">
         <canvas id="scope"></canvas>
         <canvas id="scope2d"></canvas>
+        <canvas id="scopeSpec"></canvas>
         <div class="hear-hint" id="hearHint" aria-hidden="true">🧠 Tap the brain to see how you hear</div>
         <div class="hear-overlay" id="hearOverlay">
           <div class="hear-caption" id="hearCaption"></div>
@@ -1009,14 +1054,27 @@
           <button class="rail-btn" id="stopBtn" type="button" title="Stop" aria-label="Stop">
             <i class="bi bi-stop-fill"></i>
           </button>
-          <button class="rail-btn rail-scene viz-mode-btn" id="vizModeBtn" type="button" aria-label="Switch to 2D wave view" title="2D / 3D">
-            <i class="bi bi-badge-3d" id="vizModeIcon"></i>
-          </button>
+          <div class="viz-mode-wrap rail-scene">
+            <button class="rail-btn viz-mode-btn" id="vizModeBtn" type="button" aria-label="Change view" aria-haspopup="menu" aria-expanded="false" title="View: Brain / Waves / Spectrogram">
+              <i class="bi bi-badge-3d" id="vizModeIcon"></i>
+            </button>
+            <div class="menu viz-menu" id="vizModeMenu" role="menu" aria-label="Visualizer view" hidden>
+              <button class="menu-item" type="button" role="menuitemradio" data-viz="3d" aria-checked="true">
+                <i class="vz-emoji">🧠</i>Brain<i class="bi bi-check2 vz-check"></i>
+              </button>
+              <button class="menu-item" type="button" role="menuitemradio" data-viz="2d" aria-checked="false">
+                <i class="bi bi-soundwave"></i>Normal waves<i class="bi bi-check2 vz-check"></i>
+              </button>
+              <button class="menu-item" type="button" role="menuitemradio" data-viz="spec" aria-checked="false">
+                <i class="bi bi-bar-chart-line-fill"></i>Spectrogram<i class="bi bi-check2 vz-check"></i>
+              </button>
+            </div>
+          </div>
           <button class="rail-btn rail-3d" id="hearBtn" type="button" aria-label="Show how you hear" title="How you hear">🧠</button>
           <button class="rail-btn rail-3d rail-scene active" id="rotateBtn" type="button" aria-label="Toggle auto-rotate" title="Auto-rotate">
             <i class="bi bi-arrow-repeat"></i>
           </button>
-          <button class="rail-btn rail-3d rail-scene" id="resetViewBtn" type="button" aria-label="Reset view" title="Reset view">
+          <button class="rail-btn rail-scene" id="resetViewBtn" type="button" aria-label="Reset view" title="Reset view">
             <i class="bi bi-crosshair"></i>
           </button>
           <button class="rail-btn viz-fullscreen-btn" id="vizFullscreenBtn" type="button" aria-label="Expand visualizer" title="Immersive">
@@ -1203,6 +1261,9 @@
   var songInput = document.getElementById('songInput');
   var songInfo = document.getElementById('songInfo');
   var songName = document.getElementById('songName');
+  new MutationObserver(function(){
+    activeWave.classList.toggle('alert', /denied|not supported/i.test(activeWave.textContent));
+  }).observe(activeWave, { childList: true, characterData: true, subtree: true });
   var songCurrent = document.getElementById('songCurrent');
   var songDuration = document.getElementById('songDuration');
   var seekSlider = document.getElementById('seekSlider');
@@ -1290,35 +1351,121 @@
     if (!isVizFullscreen) return;
     if (e.target.closest('.viz-fullscreen-btn')) return;
     if (e.target.closest('.viz-mode-btn')) return;
+    if (e.target.closest('.viz-mode-wrap')) return;
+    if (!vizModeMenu.hidden) return;
     if (e.target.closest('.rail-btn')) return;
     playBtn.click();
   });
 
-  // ---------------- Visualizer 2D / 3D mode toggle ----------------
+
+  // ---------------- 2D waves: two-finger rotate ----------------
+  // Two fingers drag = tilt/turn the wave in 3D, twist = spin it. "Reset view" restores it.
+  var wave2dRot = { x: 0, y: 0, z: 0 };
+  var wave2dPtrs = {}, wave2dCount = 0, wave2dLast = null;
+  function apply2dRot(){
+    var r = wave2dRot;
+    scope2d.style.transform = (r.x || r.y || r.z)
+      ? 'perspective(900px) rotateX(' + r.x + 'deg) rotateY(' + r.y + 'deg) rotateZ(' + r.z + 'deg)'
+      : '';
+  }
+  function reset2dRot(){
+    wave2dRot.x = wave2dRot.y = wave2dRot.z = 0;
+    scope2d.style.transition = 'transform .45s ease, opacity .2s ease';
+    apply2dRot();
+    setTimeout(function(){ scope2d.style.transition = ''; }, 500);
+  }
+  function wave2dGesture(){
+    var ids = Object.keys(wave2dPtrs);
+    if (ids.length < 2) return null;
+    var a = wave2dPtrs[ids[0]], b = wave2dPtrs[ids[1]];
+    return { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ang: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI };
+  }
+  scope2d.addEventListener('pointerdown', function(e){
+    if (!wave2dPtrs[e.pointerId]) wave2dCount++;
+    wave2dPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    try { scope2d.setPointerCapture(e.pointerId); } catch(err){}
+    wave2dLast = wave2dGesture();
+  });
+  scope2d.addEventListener('pointermove', function(e){
+    if (!wave2dPtrs[e.pointerId]) return;
+    wave2dPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var g = wave2dGesture();
+    if (!g || !wave2dLast){ wave2dLast = g; return; }
+    var dAng = g.ang - wave2dLast.ang;
+    if (dAng > 180) dAng -= 360; else if (dAng < -180) dAng += 360;
+    var rr = scope2d.getBoundingClientRect();
+    var kd = 300 / Math.max(240, Math.min(rr.width, rr.height));   // degrees per pixel
+    wave2dRot.y += (g.mx - wave2dLast.mx) * kd;
+    wave2dRot.x -= (g.my - wave2dLast.my) * kd;
+    wave2dRot.z += dAng;
+    wave2dLast = g;
+    apply2dRot();
+  });
+  function end2dPtr(e){
+    if (wave2dPtrs[e.pointerId]){ delete wave2dPtrs[e.pointerId]; wave2dCount--; }
+    wave2dLast = wave2dGesture();
+  }
+  scope2d.addEventListener('pointerup', end2dPtr);
+  scope2d.addEventListener('pointercancel', end2dPtr);
+
+  // ---------------- Visualizer view switcher (dropdown): Brain / Waves / Spectrogram ----------------
   var VIZ_MODE_KEY = 'heal-viz-mode';
-  var vizMode = '3d'; // '3d' | '2d'
+  var vizMode = '3d'; // '3d' (brain scene) | '2d' (normal waves) | 'spec' (3D spectrogram)
   try {
     var storedVizMode = localStorage.getItem(VIZ_MODE_KEY);
-    if (storedVizMode === '2d' || storedVizMode === '3d') vizMode = storedVizMode;
+    if (storedVizMode === '2d' || storedVizMode === '3d' || storedVizMode === 'spec') vizMode = storedVizMode;
   } catch(e){}
+
+  var vizModeMenu = document.getElementById('vizModeMenu');
+  var vizModeItems = vizModeMenu.querySelectorAll('[data-viz]');
+  var VIZ_ICONS = { '3d': 'bi bi-badge-3d', '2d': 'bi bi-soundwave', 'spec': 'bi bi-bar-chart-line-fill' };
+  var VIZ_NAMES = { '3d': 'Brain', '2d': 'Normal waves', 'spec': 'Spectrogram' };
 
   function setVizMode(mode){
     vizMode = mode;
-    var is2d = mode === '2d';
-    vizPanel.classList.toggle('mode-2d', is2d);
-    vizModeBtn.classList.toggle('active', is2d);
-    vizModeIcon.className = is2d ? 'bi bi-soundwave' : 'bi bi-badge-3d';
-    vizModeBtn.setAttribute('aria-label', is2d ? 'Switch to 3D view' : 'Switch to 2D wave view');
-    // the 3D canvas only needs OrbitControls while it's actually visible
-    if (controls) controls.enabled = !is2d;
+    vizPanel.classList.toggle('mode-2d', mode === '2d');
+    vizPanel.classList.toggle('mode-spec', mode === 'spec');
+    vizModeBtn.classList.toggle('active', mode !== '3d');
+    vizModeIcon.className = VIZ_ICONS[mode] || VIZ_ICONS['3d'];
+    vizModeBtn.setAttribute('aria-label', 'Change view (now: ' + (VIZ_NAMES[mode] || '') + ')');
+    vizModeItems.forEach(function(it){
+      it.setAttribute('aria-checked', it.getAttribute('data-viz') === mode ? 'true' : 'false');
+    });
+    // the brain scene only needs OrbitControls while it's actually visible
+    if (controls) controls.enabled = (mode === '3d');
+    if (mode === 'spec' && typeof initSpec === 'function') initSpec();
     try { localStorage.setItem(VIZ_MODE_KEY, mode); } catch(e){}
     resize2dCanvas();
+    if (mode === 'spec' && typeof specLayout === 'function') specLayout();
+  }
+
+  function closeVizModeMenu(){
+    vizModeMenu.hidden = true;
+    vizModeBtn.setAttribute('aria-expanded', 'false');
   }
 
   vizModeBtn.addEventListener('click', function(e){
     e.stopPropagation();
-    if (vizMode === '3d' && typeof exitHearing === 'function') exitHearing();
-    setVizMode(vizMode === '3d' ? '2d' : '3d');
+    var willOpen = vizModeMenu.hidden;
+    vizModeMenu.hidden = !willOpen;
+    vizModeBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  });
+  vizModeMenu.addEventListener('click', function(e){
+    e.stopPropagation();
+    var item = e.target.closest('[data-viz]');
+    if (!item) return;
+    var m = item.getAttribute('data-viz');
+    if (m !== vizMode){
+      if (vizMode === '3d' && typeof exitHearing === 'function') exitHearing();
+      setVizMode(m);
+    }
+    closeVizModeMenu();
+  });
+  document.addEventListener('click', function(e){
+    if (!vizModeMenu.hidden && !e.target.closest('.viz-mode-wrap')) closeVizModeMenu();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !vizModeMenu.hidden) closeVizModeMenu();
   });
 
   // Stay in sync if the user exits native fullscreen via Esc, back
@@ -1555,6 +1702,9 @@
     }
   }
 
+  // display-only: "My Song.mp3" -> "My Song"
+  function stripExt(name){ return String(name || '').replace(/\.[A-Za-z0-9]{1,5}$/, ''); }
+
   function updatePlayUI(){
     if (state.playing){
       playIcon.className = 'bi bi-pause-fill';
@@ -1738,21 +1888,21 @@
       songGainNode.connect(masterGain);
     }
 
-    songName.textContent = file.name;
+    songName.textContent = stripExt(file.name);
     songCurrent.textContent = '0:00';
     songDuration.textContent = '0:00';
     seekSlider.value = 0;
     songInfo.hidden = false;
 
-    vizTrackName.textContent = file.name;
+    vizTrackName.textContent = stripExt(file.name);
     vizTrackCurrent.textContent = '0:00';
     vizTrackDuration.textContent = '0:00';
     vizTrackSeek.value = 0;
     vizTrackBar.hidden = false;
 
-    activeName.textContent = file.name;
+    activeName.textContent = stripExt(file.name);
     activeWave.textContent = 'live frequency';
-    playerName.textContent = file.name;
+    playerName.textContent = stripExt(file.name);
     playerFreq.textContent = 'Analyzing…';
     vizPanel.classList.add('song-mode');
   }
@@ -2011,6 +2161,285 @@
     window.addEventListener('resize', resizeCanvas);
   }
 
+
+
+  // ---------------- Two-finger free rotation (trackball) for the 3D views ----------------
+  // Two fingers: drag = turn/tilt in any direction with no angle limits (over the top and
+  // underneath), twist = roll, pinch = zoom. OrbitControls keeps handling one finger / mouse.
+  function attachTwoFingerRotate(el, o){
+    var g = null;
+    var fwd = new THREE.Vector3(), right = new THREE.Vector3(), upv = new THREE.Vector3(), off = new THREE.Vector3();
+    var qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion();
+    function info(t){
+      var a = t[0], b = t[1];
+      return {
+        mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2,
+        dist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) || 1,
+        ang: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX)
+      };
+    }
+    el.addEventListener('touchstart', function(e){
+      if (e.touches.length === 2 && !o.blocked()){ g = info(e.touches); e.preventDefault(); }
+      else if (e.touches.length !== 2){ g = null; }
+    }, { passive: false });
+    el.addEventListener('touchmove', function(e){
+      if (!g || e.touches.length !== 2) return;
+      e.preventDefault();
+      var n = info(e.touches), cam = o.camera(), tgt = o.target();
+      var r = el.getBoundingClientRect();
+      var k = (Math.PI * 1.7) / Math.max(280, Math.min(r.width, r.height));
+      var yaw = -(n.mx - g.mx) * k, pitch = -(n.my - g.my) * k;
+      var dAng = n.ang - g.ang;
+      if (dAng > Math.PI) dAng -= 2 * Math.PI; else if (dAng < -Math.PI) dAng += 2 * Math.PI;
+
+      cam.updateMatrixWorld();
+      cam.getWorldDirection(fwd);
+      right.crossVectors(fwd, cam.up).normalize();
+      upv.crossVectors(right, fwd).normalize();
+      qa.setFromAxisAngle(upv, yaw);
+      qb.setFromAxisAngle(right, pitch);
+      qc.setFromAxisAngle(fwd, -dAng);
+      qa.multiply(qb).multiply(qc);
+
+      off.copy(cam.position).sub(tgt);
+      var len = off.length() * (g.dist / n.dist);            // pinch zoom
+      len = Math.min(o.maxDist(), Math.max(o.minDist(), len));
+      off.applyQuaternion(qa).setLength(len);
+      cam.position.copy(tgt).add(off);
+      cam.up.applyQuaternion(qa).normalize();
+      cam.lookAt(tgt);
+      g = n;
+      if (o.onMove) o.onMove();
+    }, { passive: false });
+    function end(e){ if (e.touches.length < 2) g = null; }
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+  }
+
+  // ---------------- Visualizer (3D spectrogram) ----------------
+  // Time runs left -> right (newest on the right), frequency runs bottom -> top on a
+  // log scale, and loudness is both the surface height and the color (blue -> green
+  // -> yellow -> red). Drag to orbit, pinch / scroll to zoom.
+  var SPEC_T = 110, SPEC_F = 72;                 // time columns x frequency rows
+  var SPEC_W = 9, SPEC_H = 6.2, SPEC_Z = 3;      // world size of the surface
+  var SPEC_MIN_HZ = 30, SPEC_MAX_HZ = 16000;
+  var specCanvas = document.getElementById('scopeSpec');
+  var specRenderer = null, specScene = null, specCamera = null, specControls = null;
+  var specGeom = null, specPos = null, specCol = null, specHist = null, specFreqData = null;
+  var specFrame = 0, specSX = 1, specSY = 1, specLabels = [];
+  var specTarget = new THREE.Vector3(0, 0, 0.6);
+  var specDirDefault = new THREE.Vector3(0.56, 0.22, 0.80).normalize();
+  var SPEC_STOPS = [
+    [0.00, 0.05, 0.03, 0.18],
+    [0.18, 0.13, 0.10, 0.50],
+    [0.38, 0.04, 0.50, 0.62],
+    [0.58, 0.20, 0.82, 0.18],
+    [0.76, 0.95, 0.88, 0.10],
+    [0.90, 1.00, 0.45, 0.05],
+    [1.00, 1.00, 0.06, 0.05]
+  ];
+
+  function specColor(v, arr, o){
+    if (v < 0) v = 0; else if (v > 1) v = 1;
+    var i = 1;
+    while (i < SPEC_STOPS.length - 1 && v > SPEC_STOPS[i][0]) i++;
+    var a = SPEC_STOPS[i - 1], b = SPEC_STOPS[i];
+    var t = (v - a[0]) / (b[0] - a[0]);
+    arr[o]     = a[1] + (b[1] - a[1]) * t;
+    arr[o + 1] = a[2] + (b[2] - a[2]) * t;
+    arr[o + 2] = a[3] + (b[3] - a[3]) * t;
+  }
+
+  function makeSpecLabel(text){
+    var cv = document.createElement('canvas');
+    cv.width = 128; cv.height = 64;
+    var c = cv.getContext('2d');
+    c.font = '600 26px "JetBrains Mono", monospace';
+    c.textAlign = 'right';
+    c.textBaseline = 'middle';
+    c.fillStyle = 'rgba(150,160,176,0.95)';
+    c.fillText(text, 122, 32);
+    var tex = new THREE.CanvasTexture(cv);
+    var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    spr.scale.set(1.3, 0.65, 1);
+    return spr;
+  }
+
+  function initSpec(){
+    if (specRenderer || !specCanvas) return;
+    specScene = new THREE.Scene();
+    specCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 120);
+    specCamera.position.copy(specTarget).addScaledVector(specDirDefault, 12);
+
+    specRenderer = new THREE.WebGLRenderer({ canvas: specCanvas, antialias: true, alpha: true });
+    specRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    specRenderer.setClearColor(0x000000, 0);
+
+    specControls = new THREE.OrbitControls(specCamera, specCanvas);
+    specControls.enableDamping = true;
+    specControls.dampingFactor = 0.08;
+    specControls.enablePan = false;
+    specControls.minDistance = 4;
+    specControls.maxDistance = 45;
+    // full 360° orbit: no azimuth limit, and the polar range spans top to bottom
+    specControls.minPolarAngle = 0;
+    specControls.maxPolarAngle = Math.PI;
+    specControls.minAzimuthAngle = -Infinity;
+    specControls.maxAzimuthAngle = Infinity;
+    specControls.rotateSpeed = 0.9;
+    specControls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: -1 };   // two fingers -> trackball below
+    attachTwoFingerRotate(specCanvas, {
+      camera: function(){ return specCamera; },
+      target: function(){ return specControls.target; },
+      blocked: function(){ return vizMode !== 'spec'; },
+      minDist: function(){ return specControls.minDistance; },
+      maxDist: function(){ return specControls.maxDistance; }
+    });
+    specControls.target.copy(specTarget);
+    specControls.update();
+
+    var T = SPEC_T, F = SPEC_F;
+    specPos = new Float32Array(T * F * 3);
+    specCol = new Float32Array(T * F * 3);
+    specHist = new Float32Array(T * F);
+    var idx = new Uint16Array((T - 1) * (F - 1) * 6), k = 0;
+    for (var t = 0; t < T - 1; t++){
+      for (var f = 0; f < F - 1; f++){
+        var a = t * F + f, b = (t + 1) * F + f, c = (t + 1) * F + f + 1, d = t * F + f + 1;
+        idx[k++] = a; idx[k++] = b; idx[k++] = d;
+        idx[k++] = b; idx[k++] = c; idx[k++] = d;
+      }
+    }
+    specGeom = new THREE.BufferGeometry();
+    specGeom.setAttribute('position', new THREE.BufferAttribute(specPos, 3));
+    specGeom.setAttribute('color', new THREE.BufferAttribute(specCol, 3));
+    specGeom.setIndex(new THREE.BufferAttribute(idx, 1));
+    var mesh = new THREE.Mesh(specGeom, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    mesh.frustumCulled = false;
+    specScene.add(mesh);
+
+    specScene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    var dl = new THREE.DirectionalLight(0xffffff, 0.55);
+    dl.position.set(4, 6, 8);
+    specScene.add(dl);
+
+    // frequency tick labels down the left edge
+    [[100, '100 Hz'], [500, '500'], [1000, '1k'], [5000, '5k'], [10000, '10k']].forEach(function(p){
+      var spr = makeSpecLabel(p[1]);
+      specScene.add(spr);
+      specLabels.push({ hz: p[0], sprite: spr });
+    });
+
+    if (window.ResizeObserver){
+      new ResizeObserver(specLayout).observe(specCanvas);
+    } else {
+      window.addEventListener('resize', specLayout);
+    }
+    writeSpecSurface();
+    specLayout();
+  }
+
+  function specLayout(){
+    if (!specRenderer) return;
+    var rect = specCanvas.getBoundingClientRect();
+    var w = Math.max(1, Math.round(rect.width));
+    var h = Math.max(1, Math.round(rect.height));
+    specRenderer.setSize(w, h, false);
+    var aspect = w / h;
+    specCamera.aspect = aspect;
+
+    // tall/narrow (portrait phone): squeeze the time axis and stretch frequency so the
+    // surface fills the screen instead of floating small in the middle
+    var tt = THREE.MathUtils.clamp((1.2 - aspect) / 0.75, 0, 1);
+    specSX = THREE.MathUtils.lerp(1, 0.55, tt);
+    specSY = THREE.MathUtils.lerp(1, 1.85, tt);
+
+    var lmin = Math.log(SPEC_MIN_HZ), lmax = Math.log(SPEC_MAX_HZ);
+    specLabels.forEach(function(L){
+      var y = ((Math.log(L.hz) - lmin) / (lmax - lmin) - 0.5) * SPEC_H * specSY;
+      L.sprite.position.set(-SPEC_W * specSX / 2 - 0.12 - 0.65, y, 0);
+    });
+
+    var tanH = Math.tan(THREE.MathUtils.degToRad(specCamera.fov / 2));
+    var needW = (SPEC_W * specSX / 2 + 1.5) / (tanH * aspect);
+    var needH = (SPEC_H * specSY / 2 + 0.5) / tanH;
+    var dist = Math.max(6, needW, needH);
+    var dir = specCamera.position.clone().sub(specTarget);
+    if (dir.lengthSq() < 1e-6) dir.copy(specDirDefault);
+    dir.normalize();
+    specCamera.position.copy(specTarget).addScaledVector(dir, dist);
+    specCamera.updateProjectionMatrix();
+    if (specControls) specControls.update();
+  }
+
+  // push one new column of frequency data (or a decaying silent one) at the right edge
+  function pushSpecColumn(){
+    var T = SPEC_T, F = SPEC_F;
+    specHist.copyWithin(0, F, T * F);
+    var base = (T - 1) * F, prev = (T - 2) * F;
+    var src = (state.mode === 'mic' && micAnalyser) ? micAnalyser : analyser;
+    var active = !!(state.playing && src && audioCtx);
+    var bins = 0, nyq = 22050, lmin = Math.log(SPEC_MIN_HZ), lmax = Math.log(SPEC_MAX_HZ);
+    if (active){
+      bins = src.frequencyBinCount;
+      if (!specFreqData || specFreqData.length !== bins) specFreqData = new Uint8Array(bins);
+      src.getByteFrequencyData(specFreqData);
+      nyq = audioCtx.sampleRate / 2;
+    }
+    for (var f = 0; f < F; f++){
+      var v = 0;
+      if (active){
+        var hzLo = Math.exp(lmin + ((f - 0.5) / (F - 1)) * (lmax - lmin));
+        var hzHi = Math.exp(lmin + ((f + 0.5) / (F - 1)) * (lmax - lmin));
+        var pLo = hzLo / nyq * bins, pHi = hzHi / nyq * bins;
+        if (pLo < bins){
+          if (pHi - pLo > 1){
+            // high rows cover several bins: keep the loudest so narrow peaks never vanish
+            var m = 0, e = Math.min(bins - 1, Math.ceil(pHi));
+            for (var q = Math.max(0, Math.floor(pLo)); q <= e; q++){
+              if (specFreqData[q] > m) m = specFreqData[q];
+            }
+            v = m / 255;
+          } else {
+            // low rows sit between bins: interpolate so they stay smooth
+            var pc = (pLo + pHi) / 2, i0 = Math.floor(pc), i1 = Math.min(bins - 1, i0 + 1), fr = pc - i0;
+            v = (specFreqData[Math.min(bins - 1, i0)] * (1 - fr) + specFreqData[i1] * fr) / 255;
+          }
+        }
+        if (state.mode === 'mic') v = Math.min(1, v * 1.25);
+      }
+      var sm = v * 0.7 + specHist[prev + f] * 0.3;   // light temporal smoothing / decay
+      specHist[base + f] = sm < 0.004 ? 0 : sm;
+    }
+  }
+
+  function writeSpecSurface(){
+    var T = SPEC_T, F = SPEC_F;
+    var hx = SPEC_W * specSX, hy = SPEC_H * specSY;
+    for (var t = 0; t < T; t++){
+      var x = (t / (T - 1) - 0.5) * hx;
+      for (var f = 0; f < F; f++){
+        var i = t * F + f, p = i * 3, v = Math.min(1, specHist[i] * 1.18);
+        specPos[p] = x;
+        specPos[p + 1] = (f / (F - 1) - 0.5) * hy;
+        specPos[p + 2] = v * SPEC_Z;
+        specColor(v, specCol, p);
+      }
+    }
+    specGeom.attributes.position.needsUpdate = true;
+    specGeom.attributes.color.needsUpdate = true;
+    specGeom.computeVertexNormals();
+  }
+
+  function updateSpec(){
+    if (!specRenderer) return;
+    specFrame++;
+    if (specFrame % 2 === 0) pushSpecColumn();   // ~30 columns / second
+    writeSpecSurface();
+    specControls.update();
+    specRenderer.render(specScene, specCamera);
+  }
+
   var idlePhase = 0;
   var freqDataArray = null;
   var timeDataArray = null;
@@ -2059,10 +2488,19 @@
     controls.enablePan = false;
     controls.minDistance = 3.5;
     controls.maxDistance = 22;
-    controls.minPolarAngle = Math.PI * 0.08;
-    controls.maxPolarAngle = Math.PI * 0.85;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = Math.PI;
     controls.target.set(0, 0.3, (SPEAKER_Z + EAR_Z) / 2);
     controls.update();
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: -1 };   // two fingers -> trackball below
+    attachTwoFingerRotate(renderer.domElement, {
+      camera: function(){ return camera; },
+      target: function(){ return controls.target; },
+      blocked: function(){ return vizMode !== '3d' || hearActive || !!hearFlight; },
+      minDist: function(){ return controls.minDistance; },
+      maxDist: function(){ return controls.maxDistance; },
+      onMove: function(){ controls.autoRotate = false; }
+    });
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.45;
     ['pointerdown', 'wheel', 'touchstart'].forEach(function(evt){
@@ -2981,6 +3419,7 @@
     hearHidden.forEach(function(o){ if (o) o.visible = false; });
     hearPrevAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
+    camera.up.set(0, 1, 0);
     hearFlight = { t: 0, toHear: true, sp: camera.position.clone(), st: controls.target.clone() };
     controls.enabled = false;
     hearCaptionKey = '';
@@ -3295,6 +3734,8 @@
     updateWave();
     if (vizMode === '2d'){
       draw2D(rowData[0], currentEnergy);
+    } else if (vizMode === 'spec'){
+      updateSpec();
     } else {
       updateRings(currentEnergy);
       updateBrain(currentEnergy);
@@ -3395,8 +3836,17 @@
   });
   resetViewBtn.addEventListener('click', function(e){
     e.stopPropagation();
+    if (vizMode === '2d'){ reset2dRot(); return; }
+    if (vizMode === 'spec' && specCamera && specControls){
+      specCamera.up.set(0, 1, 0);
+      specCamera.position.copy(specTarget).addScaledVector(specDirDefault, 1);
+      specControls.target.copy(specTarget);
+      specLayout();
+      return;
+    }
     if (!controls || !camera || hearActive || hearFlight) return;
     // glide back to the default framing (same flight used when leaving the hearing view)
+    camera.up.set(0, 1, 0);
     hearFlight = { t: 0, toHear: false, sp: camera.position.clone(), st: controls.target.clone() };
     controls.enabled = false;
   });

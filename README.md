@@ -15,6 +15,7 @@ A single-page, installable web app for playing custom frequencies or your own au
 - **Custom frequency generator** — any tone from 20–20,000 Hz
 - **Song upload** — load your own audio file and watch its live waveform
 - **Microphone input** — visualize live sound picked up from the mic
+- **View dropdown** — one button switches the visualizer between the 3D brain scene, normal waves, and a 3D spectrogram (time × frequency × loudness, jet-colored; drag to orbit)
 - **Light/dark theme** — auto-detects system preference, remembers your choice
 - **Installable PWA** — add-to-home-screen support via `manifest.json` and app icons
 - **Live 3D visualizer** (Three.js), including:
