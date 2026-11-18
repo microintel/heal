@@ -6,7 +6,7 @@ Native Android (Kotlin + Jetpack Compose + Media3) music player.
 - **Folders** tab: every folder containing music; tap to open
 - **Songs** tab: all songs; Play all / Shuffle
 - Bottom navigation: Folders · Songs · Visualizer; top menu (⋮) with theme (Light / Dark / System) and About
-- Visualizers: 3D wave, 2D wave, Frequencies (live FFT spectrum)
+- Visualizers: 3D wave, 2D wave, Frequencies (live FFT spectrum), Brain (from Heal: speaker → ear → brain; tap the brain to follow the sound through the ear canal, eardrum, ossicles, cochlea and auditory nerve into a lit-up neural network). The brain is a lit, folded 3D cortex (sulci, lateral fissure, temporal lobe, cerebellum, brainstem) and the waves are smoothed. If the phone's media volume goes above 85% while music plays in the Brain visualizer, the view dives into the ear, the eardrum cracks and tears, and the song is stopped (lower the volume and the drum heals). Other visualizers are unaffected
 - Mini player + full Now Playing screen (seek, prev/next, shuffle, repeat)
 - Background playback with notification / lock-screen controls
 - 3D waveform waterfall (from Heal) on Now Playing, driven by the live audio; drag to rotate, corner icon toggles album art

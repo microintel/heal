@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -74,7 +75,7 @@ private val ROSE = Color(0xFFE11D48)
  * Pinch-zoom + drag. Two fingers always count; one finger only when [singleFinger] says so
  * (otherwise the touch is left alone so the tab pager can swipe).
  */
-private fun Modifier.panZoom(singleFinger: () -> Boolean, onGesture: (Offset, Float) -> Unit): Modifier =
+internal fun Modifier.panZoom(singleFinger: () -> Boolean, onGesture: (Offset, Float) -> Unit): Modifier =
     pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
@@ -101,11 +102,13 @@ fun VizPanel(
     modifier: Modifier = Modifier,
     resetKey: Int = 0,
     freq3D: Boolean = true,
+    onVolumeExceeded: () -> Unit = {},
 ) {
     when (mode) {
         VizMode.WAVE3D -> Wave3D(isPlaying, modifier, resetKey)
         VizMode.WAVE2D -> Wave2D(isPlaying, modifier, resetKey)
         VizMode.FREQ -> if (freq3D) Frequencies3D(isPlaying, modifier, resetKey) else Frequencies2D(isPlaying, modifier, resetKey)
+        VizMode.BRAIN -> BrainViz(isPlaying, modifier, resetKey, onVolumeExceeded)
     }
 }
 
@@ -133,16 +136,17 @@ fun VizModeChips(mode: VizMode, onChange: (VizMode) -> Unit, modifier: Modifier 
 @Composable
 fun VizModeIcons(mode: VizMode, onChange: (VizMode) -> Unit, modifier: Modifier = Modifier) {
     val dim = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (m in VizMode.values()) {
             val sel = m == mode
             val icon: ImageVector = when (m) {
                 VizMode.WAVE3D -> Icons.Rounded.ViewInAr
                 VizMode.WAVE2D -> Icons.Rounded.ShowChart
                 VizMode.FREQ -> Icons.Rounded.BarChart
+                VizMode.BRAIN -> Icons.Rounded.Psychology
             }
             Box(
-                Modifier.size(40.dp).clip(CircleShape)
+                Modifier.size(36.dp).clip(CircleShape)
                     .background(if (sel) HealTeal.copy(alpha = 0.15f) else Color.Transparent)
                     .clickable { onChange(m) },
                 contentAlignment = Alignment.Center,

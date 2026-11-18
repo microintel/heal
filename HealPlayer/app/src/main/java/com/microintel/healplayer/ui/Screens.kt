@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.animation.animateColorAsState
@@ -397,6 +398,7 @@ private fun SettingsScreen(
                     VizMode.WAVE3D -> Icons.Rounded.ViewInAr
                     VizMode.WAVE2D -> Icons.Rounded.ShowChart
                     VizMode.FREQ -> Icons.Rounded.BarChart
+                    VizMode.BRAIN -> Icons.Rounded.Psychology
                 }
                 SettingsChoice(m.label, icon, vm.vizMode == m) { vm.selectViz(m) }
             }
@@ -610,6 +612,7 @@ private fun VisualizerScreen(vm: PlayerViewModel) {
                 Modifier.fillMaxSize(),
                 resetKey = resetKey,
                 freq3D = vm.freq3D,
+                onVolumeExceeded = vm::pausePlayback,   // Brain visualizer only: stop the song when the eardrum tears
             )
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(4.dp),
