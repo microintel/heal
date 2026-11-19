@@ -23,6 +23,7 @@ object QuoteNotifier {
     private const val PREFS = "heal_prefs"
     private const val KEY_LAST = "last_quote"
     private const val KEY_CACHE = "quotes_cache"
+    private const val KEY_ENABLED = "quote_notif"
     private const val QUOTES_URL = "https://microintel.github.io/heal/quotes.json"
 
     private val fallbackQuotes = listOf(
@@ -52,9 +53,22 @@ object QuoteNotifier {
         "Close your eyes. Let the music do the rest.",
     )
 
+    /** Settings switch: show the quote notification when the app opens (default on). */
+    fun isEnabled(context: Context): Boolean =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
+
+    fun setEnabled(context: Context, on: Boolean) {
+        val ctx = context.applicationContext
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, on).apply()
+        if (!on) {
+            try { androidx.core.app.NotificationManagerCompat.from(ctx).cancel(NOTIFICATION_ID) } catch (_: Exception) { }
+        }
+    }
+
     /** Fetches the latest quotes online (cached for offline use) and shows a random one. */
     fun show(context: Context) {
         val ctx = context.applicationContext
+        if (!isEnabled(ctx)) return   // switched off in Settings
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -132,7 +146,7 @@ object QuoteNotifier {
         )
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_heal)
-            .setColor(0xFF0D9488.toInt())
+            .setColor(0xFFD5424A.toInt())
             .setContentTitle("Heal")
             .setContentText(quotes[i])
             .setStyle(NotificationCompat.BigTextStyle().bigText(quotes[i]))

@@ -16,6 +16,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -26,6 +28,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
+import com.microintel.healplayer.AudioAnalyzer
 import com.microintel.healplayer.R
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,6 +36,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Add
@@ -65,6 +69,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -99,6 +104,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -167,6 +173,7 @@ import kotlinx.coroutines.withContext
 
 // ───────────────────────── Root ─────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HealApp(
     vm: PlayerViewModel,
@@ -204,6 +211,7 @@ fun HealApp(
     var showSettings by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showTune by remember { mutableStateOf(false) }
+    var showEq by remember { mutableStateOf(false) }
 
     val openFolder: Folder? = openFolderPath?.let { p -> vm.folders.firstOrNull { it.path == p } }
     val albums = remember(vm.songs) { buildAlbums(vm.songs) }
@@ -216,7 +224,7 @@ fun HealApp(
     BackHandler(enabled = showAbout) { showAbout = false }
     BackHandler(enabled = searching) { searching = false; vm.onQueryChange("") }
 
-    val pagerState = rememberPagerState { 4 }
+    val pagerState = rememberPagerState { 5 }
     val pagerVisible = granted && !searching && !showAbout && !showSettings && !showSleep && !showTune &&
         openFolder == null && !(tab == 2 && openAlbum != null)
     // pager -> tab (user swiped); runs only while the pager is on screen
@@ -227,7 +235,11 @@ fun HealApp(
     }
     // tab -> pager (bottom bar tapped): glide to the page
     LaunchedEffect(tab) {
-        if (pagerVisible && pagerState.currentPage != tab) pagerState.animateScrollToPage(tab)
+        if (pagerVisible && pagerState.currentPage != tab) {
+            val diff = tab - pagerState.currentPage
+            if (kotlin.math.abs(diff) > 1) pagerState.scrollToPage(tab - kotlin.math.sign(diff.toFloat()).toInt())
+            pagerState.animateScrollToPage(tab)
+        }
     }
 
     val showNav = granted && !searching && !showAbout && !showSettings && !showSleep && !showTune
@@ -277,15 +289,24 @@ fun HealApp(
                     else -> HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 1,   // neighbours are ready before the swipe reaches them
+                        flingBehavior = PagerDefaults.flingBehavior(
+                            state = pagerState,
+                            pagerSnapDistance = PagerSnapDistance.atMost(1),   // one flick = one tab
+                            snapPositionalThreshold = 0.22f,                    // a short drag is enough to switch
+                        ),
                     ) { page ->
                         when (page) {
-                            3 -> VisualizerScreen(vm)
+                            // the heavy visualizer is only composed when it is shown or being swiped to
+                            3 -> if (pagerState.currentPage == 3 || pagerState.isScrollInProgress) VisualizerScreen(vm, onEqualizer = { showEq = true }) else Unit
+                            4 -> EqualizerScreen()
                             else -> Column(Modifier.fillMaxSize()) {
                                 HomeHeader(
                                     title = when (page) { 0 -> "Folders"; 1 -> "Songs"; else -> "Albums" },
                                     onSearch = { searching = true },
                                     onSettings = { showSettings = true },
                                     onTune = { showTune = true },
+                                    onEqualizer = { showEq = true },
                                 )
                                 if (page == 0) FolderList(vm) { openFolderPath = it.path }
                                 else if (page == 2) AlbumGrid(vm, albums) { openAlbumId = it.id }
@@ -299,7 +320,7 @@ fun HealApp(
                 MiniPlayer(vm) { showPlayer = true }
             }
             if (showNav) {
-                HealNavBar(tab) { tab = it; openFolderPath = null; openAlbumId = null }
+                HealNavBar(if (pagerVisible) pagerState.targetPage else tab) { tab = it; openFolderPath = null; openAlbumId = null }
             } else {
                 Spacer(Modifier.navigationBarsPadding())
             }
@@ -310,7 +331,15 @@ fun HealApp(
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
         ) {
-            NowPlaying(vm) { showPlayer = false }
+            NowPlaying(vm, onEqualizer = { showEq = true }) { showPlayer = false }
+        }
+
+        AnimatedVisibility(
+            visible = showEq,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+        ) {
+            EqualizerScreen { showEq = false }
         }
 
     }
@@ -322,6 +351,7 @@ private fun HomeHeader(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onTune: () -> Unit,
+    onEqualizer: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     Row(
@@ -335,6 +365,7 @@ private fun HomeHeader(
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Search", Modifier.size(26.dp)) }
+        IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings", Modifier.size(26.dp)) }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Menu") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -344,9 +375,9 @@ private fun HomeHeader(
                     onClick = { menu = false; onTune() },
                 )
                 DropdownMenuItem(
-                    text = { Text("Settings") },
-                    leadingIcon = { Icon(Icons.Rounded.Settings, null) },
-                    onClick = { menu = false; onSettings() },
+                    text = { Text("Equalizer") },
+                    leadingIcon = { Icon(Icons.Rounded.Equalizer, null) },
+                    onClick = { menu = false; onEqualizer() },
                 )
             }
         }
@@ -371,68 +402,98 @@ private fun SettingsScreen(
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            SectionLabel("Theme")
-            SettingsChoice("Light", Icons.Rounded.LightMode, themeMode == ThemeMode.LIGHT) { onThemeChange(ThemeMode.LIGHT) }
-            SettingsChoice("Dark", Icons.Rounded.DarkMode, themeMode == ThemeMode.DARK) { onThemeChange(ThemeMode.DARK) }
-            SettingsChoice("System default", Icons.Rounded.SettingsBrightness, themeMode == ThemeMode.SYSTEM) { onThemeChange(ThemeMode.SYSTEM) }
+        val ctx = LocalContext.current
+        var quotes by remember { mutableStateOf(QuoteNotifier.isEnabled(ctx)) }
+        val dim = MaterialTheme.colorScheme.onSurfaceVariant
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp)) {
+            // Theme
+            MiniLabel("Theme")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MiniChip("Light", themeMode == ThemeMode.LIGHT) { onThemeChange(ThemeMode.LIGHT) }
+                MiniChip("Dark", themeMode == ThemeMode.DARK) { onThemeChange(ThemeMode.DARK) }
+                MiniChip("System", themeMode == ThemeMode.SYSTEM) { onThemeChange(ThemeMode.SYSTEM) }
+            }
 
-            SectionLabel("Palette")
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+            // Accent colour
+            MiniLabel("Accent")
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 for (p in Palette.values()) {
                     Box(
-                        Modifier.size(40.dp).clip(CircleShape).background(p.color).clickable { onPaletteChange(p) },
+                        Modifier.size(30.dp).clip(CircleShape).background(p.color).clickable { onPaletteChange(p) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (p == palette) Icon(Icons.Rounded.Check, p.label, tint = Color.White)
+                        if (p == palette) Icon(Icons.Rounded.Check, p.label, Modifier.size(16.dp), tint = Color.White)
                     }
                 }
             }
 
-            SectionLabel("Visualizer mode")
-            for (m in VizMode.values()) {
-                val icon = when (m) {
-                    VizMode.WAVE3D -> Icons.Rounded.ViewInAr
-                    VizMode.WAVE2D -> Icons.Rounded.ShowChart
-                    VizMode.FREQ -> Icons.Rounded.BarChart
-                    VizMode.BRAIN -> Icons.Rounded.Psychology
-                }
-                SettingsChoice(m.label, icon, vm.vizMode == m) { vm.selectViz(m) }
+            // Visualizer mode
+            MiniLabel("Visualizer")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in VizMode.values()) MiniChip(m.label, vm.vizMode == m) { vm.selectViz(m) }
             }
 
-            SectionLabel("Sleep timer")
+            Spacer(Modifier.height(20.dp))
+
+            // Quote notification on app open
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Quote notification")
+                    Text("Show a short thought when the app opens", style = MaterialTheme.typography.bodySmall, color = dim)
+                }
+                androidx.compose.material3.Switch(
+                    checked = quotes,
+                    onCheckedChange = { quotes = it; QuoteNotifier.setEnabled(ctx, it) },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = HealTeal),
+                )
+            }
+
+            // Sleep timer
             Row(
-                Modifier.fillMaxWidth().clickable { onSleep() }.padding(horizontal = 20.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().clickable { onSleep() }.padding(vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Bedtime, null, tint = if (vm.sleepMinutes > 0) HealTeal else MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Sleep timer")
                     Text(
                         if (vm.sleepMinutes > 0) "Stops in ${fmtRemaining(vm.sleepRemainingMs)}" else "Off",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (vm.sleepMinutes > 0) HealTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (vm.sleepMinutes > 0) HealTeal else dim,
                     )
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Rounded.ChevronRight, null, tint = dim)
             }
 
-            SectionLabel("About")
+            // About
             Row(
-                Modifier.fillMaxWidth().clickable { onAbout() }.padding(horizontal = 20.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().clickable { onAbout() }.padding(vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(16.dp))
-                Text("About app", Modifier.weight(1f))
-                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("About", Modifier.weight(1f))
+                Icon(Icons.Rounded.ChevronRight, null, tint = dim)
             }
         }
     }
+}
+
+@Composable
+private fun MiniLabel(text: String) {
+    Text(
+        text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun MiniChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label, maxLines = 1,
+        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.clip(CircleShape)
+            .background(if (selected) HealTeal else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 private fun fmtRemaining(ms: Long): String {
@@ -543,9 +604,10 @@ private fun HealNavBar(selected: Int, onSelect: (Int) -> Unit) {
         "Songs" to Icons.Rounded.LibraryMusic,
         "Albums" to Icons.Rounded.Album,
         "Visualizer" to Icons.Rounded.GraphicEq,
+        "Equalizer" to Icons.Rounded.Equalizer,
     )
     Box(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -566,7 +628,7 @@ private fun HealNavBar(selected: Int, onSelect: (Int) -> Unit) {
                             .clip(CircleShape)
                             .background(if (sel) HealTeal.copy(alpha = 0.18f) else Color.Transparent)
                             .clickable { onSelect(i) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(icon, label, tint = if (sel) HealTeal else dim)
@@ -591,7 +653,7 @@ private fun HealNavBar(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun VisualizerScreen(vm: PlayerViewModel) {
+private fun VisualizerScreen(vm: PlayerViewModel, onEqualizer: () -> Unit) {
     var resetKey by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 20.dp)) {
         Row(
@@ -630,6 +692,13 @@ private fun VisualizerScreen(vm: PlayerViewModel) {
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                     )
                 }
+                // open the equalizer
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f))
+                        .clickable { onEqualizer() },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Equalizer, "Equalizer", Modifier.size(22.dp), tint = HealTeal) }
                 // back to the default, perfect view
                 Box(
                     Modifier.size(40.dp).clip(CircleShape)
@@ -995,21 +1064,7 @@ private fun AboutScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Canvas(Modifier.size(width = 120.dp, height = 56.dp)) {
-                val mid = size.height / 2f
-                drawLine(
-                    Color(0xFF4F55B8), Offset(0f, mid), Offset(size.width, mid),
-                    strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round,
-                )
-                val path = Path()
-                val steps = 60
-                for (i in 0..steps) {
-                    val x = size.width * i / steps
-                    val y = mid - kotlin.math.sin(i / steps.toFloat() * 6.2831855f * 2f) * mid * 0.85f
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                drawPath(path, HealTeal, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round))
-            }
+            Image(painterResource(R.drawable.app_logo), "Healer", Modifier.size(96.dp).clip(RoundedCornerShape(22.dp)))
             Spacer(Modifier.height(24.dp))
             Text("Healer", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             if (version.isNotEmpty()) {
@@ -1132,6 +1187,7 @@ private fun MiniPlayer(vm: PlayerViewModel, onOpen: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            IconButton(onClick = { vm.previous() }) { Icon(Icons.Rounded.SkipPrevious, "Previous") }
             IconButton(onClick = { vm.togglePlay() }) {
                 Icon(if (vm.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Play/Pause", Modifier.size(30.dp))
             }
@@ -1142,9 +1198,45 @@ private fun MiniPlayer(vm: PlayerViewModel, onOpen: () -> Unit) {
 
 // ───────────────────────── Now playing ─────────────────────────
 
+/** Three vivid colours for a song: sampled from its artwork, or derived from its title/artist when it has none. */
+private fun songPalette(song: Song, art: Bitmap?): List<Color> {
+    fun vivid(h: Float, sat: Float, v: Float): Color {
+        val hh = ((h % 360f) + 360f) % 360f
+        return Color(android.graphics.Color.HSVToColor(floatArrayOf(hh, sat.coerceIn(0.55f, 1f), v.coerceIn(0.6f, 0.95f))))
+    }
+    val hsv = FloatArray(3)
+    if (art != null) {
+        try {
+            val small = Bitmap.createScaledBitmap(art, 8, 8, true)
+            var bestScore = -1f
+            var bestH = 0f; var bestS = 0f; var bestV = 0f
+            var avgR = 0f; var avgG = 0f; var avgB = 0f
+            for (y in 0 until 8) for (x in 0 until 8) {
+                val px = small.getPixel(x, y)
+                avgR += android.graphics.Color.red(px); avgG += android.graphics.Color.green(px); avgB += android.graphics.Color.blue(px)
+                android.graphics.Color.colorToHSV(px, hsv)
+                val score = hsv[1] * hsv[2]
+                if (score > bestScore) { bestScore = score; bestH = hsv[0]; bestS = hsv[1]; bestV = hsv[2] }
+            }
+            android.graphics.Color.RGBToHSV((avgR / 64f).toInt(), (avgG / 64f).toInt(), (avgB / 64f).toInt(), hsv)
+            if (bestScore > 0.08f) {
+                return listOf(
+                    vivid(bestH, bestS, bestV + 0.2f),
+                    vivid(hsv[0], hsv[1] + 0.2f, hsv[2] + 0.3f),
+                    vivid(bestH + 45f, bestS, bestV + 0.2f),
+                )
+            }
+        } catch (e: Exception) {
+            // fall through to the derived colours
+        }
+    }
+    val h = ((song.title + song.artist).hashCode().toLong() and 0x7fffffffL) % 360L
+    return listOf(vivid(h.toFloat(), 0.7f, 0.85f), vivid(h + 50f, 0.65f, 0.8f), vivid(h - 55f, 0.7f, 0.8f))
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
+private fun NowPlaying(vm: PlayerViewModel, onEqualizer: () -> Unit, onClose: () -> Unit) {
     val song = vm.currentSong ?: return
     BackHandler(onBack = onClose)
     val ctx = LocalContext.current
@@ -1162,6 +1254,54 @@ private fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
     val target = lerp(bg, tint ?: HealTeal, if (dark) 0.5f else 0.35f)
     val bottomColor by animateColorAsState(target, tween(700), label = "tint")
 
+    // per-song colours (from the artwork, or derived from the song when it has none)
+    val palette by produceState(songPalette(song, null), song.id) {
+        value = withContext(Dispatchers.IO) { songPalette(song, loadArt(ctx, song, 144)) }
+    }
+    val blob0 by animateColorAsState(palette[0], tween(900), label = "blob0")
+    val blob1 by animateColorAsState(palette[1], tween(900), label = "blob1")
+    val blob2 by animateColorAsState(palette[2], tween(900), label = "blob2")
+
+    // beat-driven motion: pulse = punch on the beat, drift = flowing movement speeding up with loudness
+    val pulse = remember { mutableFloatStateOf(0f) }
+    val drift = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        var last = 0L
+        var avg = 0f
+        var env = 0f
+        var energySm = 0f
+        var smooth = 0f
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { now ->
+                val dt = if (last == 0L) 0.016f else ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.1f)
+                last = now
+                var target = 0f
+                if (vm.isPlaying) {
+                    val sp = AudioAnalyzer.spectrum
+                    var bass = 0f
+                    for (i in 0 until 10) bass += sp[i]
+                    bass /= 10f
+                    var all = 0f
+                    for (v in sp) all += v
+                    all /= sp.size
+                    avg += (bass - avg) * (dt * 1.6f)
+                    val onset = ((bass - avg - 0.02f) / 0.18f).coerceIn(0f, 1f)
+                    env = maxOf(onset, env - dt * 1.0f)
+                    val level = ((bass - 0.35f) / 0.6f).coerceIn(0f, 1f) * 0.35f
+                    energySm += (all - energySm) * (dt * 3f)
+                    target = maxOf(env, level)
+                } else {
+                    env = (env - dt * 2f).coerceAtLeast(0f)
+                    energySm += (0f - energySm) * (dt * 3f)
+                }
+                // ease towards the target: gentle rise, slow fall, so the glow breathes instead of blinking
+                smooth += (target - smooth) * (dt * (if (target > smooth) 5f else 1.2f)).coerceAtMost(1f)
+                pulse.floatValue = smooth
+                drift.floatValue += dt * (0.08f + 0.6f * energySm + 0.25f * smooth)
+            }
+        }
+    }
+
     var menu by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
@@ -1170,7 +1310,26 @@ private fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
 
     Column(
         Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(0f to bg, 0.35f to bg, 1f to bottomColor))
+            .drawBehind {
+                drawRect(Brush.verticalGradient(0f to bg, 0.35f to bg, 1f to bottomColor))
+                val p = pulse.floatValue
+                val t = drift.floatValue
+                val w = size.width
+                val h = size.height
+                val r = maxOf(w, h) * (0.6f + 0.15f * p)
+                val cols = arrayOf(blob0, blob1, blob2)
+                val a = (0.28f + 0.22f * p) * (if (dark) 1f else 0.75f)
+                for (i in 0..2) {
+                    val cx = w * (0.5f + 0.45f * kotlin.math.sin(t * (0.7f + 0.25f * i) + i * 2.1f))
+                    val cy = h * (0.55f + 0.38f * kotlin.math.cos(t * (0.5f + 0.2f * i) + i * 1.7f))
+                    val c = Offset(cx, cy)
+                    drawCircle(
+                        Brush.radialGradient(listOf(cols[i].copy(alpha = a), Color.Transparent), center = c, radius = r),
+                        radius = r,
+                        center = c,
+                    )
+                }
+            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp),
@@ -1179,6 +1338,7 @@ private fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Close", Modifier.size(32.dp)) }
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = onEqualizer) { Icon(Icons.Rounded.Equalizer, "Equalizer") }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Menu") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

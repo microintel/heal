@@ -13,6 +13,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -27,6 +28,12 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // media notification / lock-screen controls use the app symbol
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().also {
+                it.setSmallIcon(R.drawable.ic_stat_heal)
+            }
+        )
         // Tap the PCM stream so the 3D wave can follow the real audio.
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -52,6 +59,14 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
+        // equalizer on the player's audio session (re-attached if the session changes)
+        EqualizerManager.attach(this, player.audioSessionId)
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                EqualizerManager.attach(this@PlaybackService, audioSessionId)
+            }
+        })
+
         val openApp = PendingIntent.getActivity(
             this,
             0,
@@ -74,6 +89,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        EqualizerManager.release()
         session?.run {
             player.release()
             release()

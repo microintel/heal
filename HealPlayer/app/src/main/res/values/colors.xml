@@ -1,4 +1,5 @@
 <resources>
     <color name="window_bg">#FFFFFF</color>
     <color name="icon_bg">#000000</color>
+    <color name="splash_bg">#D5424A</color>
 </resources>

@@ -78,11 +78,14 @@ private val ROSE = Color(0xFFE11D48)
 internal fun Modifier.panZoom(singleFinger: () -> Boolean, onGesture: (Offset, Float) -> Unit): Modifier =
     pointerInput(Unit) {
         awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false)
+            val down = awaitFirstDown(requireUnconsumed = false)
+            // a one-finger drag that starts near the left/right edge is left for the tab pager
+            val edge = 48.dp.toPx()
+            val fromEdge = down.position.x < edge || down.position.x > size.width - edge
             do {
                 val event = awaitPointerEvent()
                 val multi = event.changes.count { it.pressed } > 1
-                if (multi || singleFinger()) {
+                if (multi || (!fromEdge && singleFinger())) {
                     val z = event.calculateZoom()
                     val pan = event.calculatePan()
                     if (z != 1f || pan != Offset.Zero) {
